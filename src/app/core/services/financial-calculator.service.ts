@@ -2,10 +2,12 @@ import { Injectable } from '@angular/core';
 import {
   Asset,
   ExpenseCategory,
+  ExpenseRecord,
   FinancialCushionSettings,
   FinancialCushionStatus,
   Goal,
   GoalFundingSummary,
+  IncomeRecord,
   IncomeSource,
   MonthlySurplusSummary,
   ProjectionSummary,
@@ -22,11 +24,20 @@ export class FinancialCalculatorService {
   private readonly DAYS_PER_MONTH = 30.4375;
 
   /**
-   * Total wealth = sum of all recorded asset balances (in base currency PLN).
+   * Asset balance converted to the base currency using its manual exchange rate (default 1).
+   */
+  assetValueInBase(asset: Asset): number {
+    const rate = Number(asset.exchangeRateToBase);
+    const safeRate = Number.isFinite(rate) && rate > 0 ? rate : 1;
+    return (Number(asset.balance) || 0) * safeRate;
+  }
+
+  /**
+   * Recorded assets total = sum of all recorded asset balances (converted to base currency).
    */
   calculateTotalWealth(assets: Asset[]): number {
     if (!assets || assets.length === 0) return 0;
-    const sum = assets.reduce((acc, a) => acc + (Number(a.balance) || 0), 0);
+    const sum = assets.reduce((acc, a) => acc + this.assetValueInBase(a), 0);
     return Math.round(sum * 100) / 100;
   }
 
@@ -37,7 +48,7 @@ export class FinancialCalculatorService {
     if (!assets || assets.length === 0) return 0;
     const sum = assets
       .filter((a) => a.isGoalEligible)
-      .reduce((acc, a) => acc + (Number(a.balance) || 0), 0);
+      .reduce((acc, a) => acc + this.assetValueInBase(a), 0);
     return Math.round(sum * 100) / 100;
   }
 
@@ -48,8 +59,28 @@ export class FinancialCalculatorService {
     if (!assets || assets.length === 0) return 0;
     const sum = assets
       .filter((a) => !a.isGoalEligible)
-      .reduce((acc, a) => acc + (Number(a.balance) || 0), 0);
+      .reduce((acc, a) => acc + this.assetValueInBase(a), 0);
     return Math.round(sum * 100) / 100;
+  }
+
+  /**
+   * Pending adjustments (spec §7.2 accounting rule):
+   * actual income records add to wealth and actual expense records subtract from it,
+   * but ONLY while they are not yet reflected in a manually updated asset balance.
+   * Expected (non-actual) records never affect actual wealth (spec §16.9).
+   * Users do not pick an account for expenses, so adjustments apply to goal-eligible wealth.
+   */
+  calculatePendingAdjustments(
+    incomeRecords: IncomeRecord[] = [],
+    expenseRecords: ExpenseRecord[] = []
+  ): number {
+    const income = incomeRecords
+      .filter((r) => r.isActual && !r.isReflectedInBalances)
+      .reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
+    const expenses = expenseRecords
+      .filter((r) => r.isActual && !r.isReflectedInBalances)
+      .reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
+    return Math.round((income - expenses) * 100) / 100;
   }
 
   /**
@@ -129,10 +160,23 @@ export class FinancialCalculatorService {
   calculateWealthSummary(
     assets: Asset[],
     goals: Goal[],
-    cushion: FinancialCushionSettings | null | undefined
+    cushion: FinancialCushionSettings | null | undefined,
+    incomeRecords: IncomeRecord[] = [],
+    expenseRecords: ExpenseRecord[] = []
   ): WealthSummary {
-    const totalWealth = this.calculateTotalWealth(assets);
-    const goalEligibleWealth = this.calculateGoalEligibleWealth(assets);
+    const recordedAssetsTotal = this.calculateTotalWealth(assets);
+    const pendingAdjustments = this.calculatePendingAdjustments(
+      incomeRecords,
+      expenseRecords
+    );
+    const totalWealth =
+      Math.round((recordedAssetsTotal + pendingAdjustments) * 100) / 100;
+    const goalEligibleWealth = Math.max(
+      0,
+      Math.round(
+        (this.calculateGoalEligibleWealth(assets) + pendingAdjustments) * 100
+      ) / 100
+    );
     const excludedWealth = this.calculateExcludedWealth(assets);
 
     const cushionTarget = this.calculateCushionTarget(cushion);
@@ -158,6 +202,8 @@ export class FinancialCalculatorService {
     );
 
     return {
+      recordedAssetsTotal,
+      pendingAdjustments,
       totalWealth,
       goalEligibleWealth,
       excludedWealth,
@@ -370,6 +416,19 @@ export class FinancialCalculatorService {
           progressPercent: 100,
           isFullyFunded: true,
           estimatedCompletionMonths: 0,
+          estimatedCompletionDate: null,
+        };
+      }
+
+      // Skipped goals are kept for reference but excluded from the funding sequence.
+      if (goal.isSkipped) {
+        return {
+          goal,
+          currentProgress: 0,
+          remainingAmount: Math.max(0, goal.targetAmount),
+          progressPercent: 0,
+          isFullyFunded: false,
+          estimatedCompletionMonths: null,
           estimatedCompletionDate: null,
         };
       }

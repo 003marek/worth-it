@@ -22,6 +22,8 @@ export interface Goal {
   targetAmount: number;
   order: number;
   isCompleted: boolean;
+  /** Skipped goals stay in the list but are excluded from the funding sequence. */
+  isSkipped?: boolean;
   completionChoice?: GoalCompletionChoice;
   spentAmount?: number;
   reservedAmount?: number;
@@ -35,6 +37,11 @@ export interface Asset {
   type: AssetType;
   currency: string;
   balance: number;
+  /**
+   * Manual conversion rate to the base currency (1 unit of `currency` = N base units).
+   * Defaults to 1 when the asset is held in the base currency. Live FX is deferred (spec §15).
+   */
+  exchangeRateToBase?: number;
   isGoalEligible: boolean;
   updatedAt: string;
 }
@@ -67,6 +74,13 @@ export interface IncomeRecord {
   currency: string;
   receivedDate: string;
   isActual: boolean;
+  /**
+   * Accounting rule (spec §7.2 / §17): asset balances are the source of truth.
+   * An actual record that is NOT yet reflected in a manually updated asset balance is a
+   * pending adjustment to wealth. Once the user updates balances and marks the record as
+   * reflected, it no longer adjusts wealth — so it is never counted twice.
+   */
+  isReflectedInBalances?: boolean;
   note?: string;
 }
 
@@ -87,6 +101,10 @@ export interface ExpenseRecord {
   currency: string;
   date: string;
   isActual: boolean;
+  /** See IncomeRecord.isReflectedInBalances. */
+  isReflectedInBalances?: boolean;
+  /** Set when the expense was created by completing a goal with the "spend" choice. */
+  goalId?: string;
   note?: string;
 }
 
@@ -117,6 +135,11 @@ export interface ApplicationSettings {
 }
 
 export interface WealthSummary {
+  /** Sum of recorded asset balances converted to base currency. */
+  recordedAssetsTotal: number;
+  /** Net of unreflected actual income (+) and expenses (−). */
+  pendingAdjustments: number;
+  /** recordedAssetsTotal + pendingAdjustments. */
   totalWealth: number;
   goalEligibleWealth: number;
   excludedWealth: number;

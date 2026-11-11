@@ -75,12 +75,16 @@ export const WorthItStore = signalStore(
     );
 
     const activeGoal = computed(() => {
-      return goals().find((g) => !g.isCompleted) ?? null;
+      return goals().find((g) => !g.isCompleted && !g.isSkipped) ?? null;
     });
 
     const upcomingGoals = computed(() => {
-      const uncompleted = goals().filter((g) => !g.isCompleted);
+      const uncompleted = goals().filter((g) => !g.isCompleted && !g.isSkipped);
       return uncompleted.slice(1);
+    });
+
+    const skippedGoals = computed(() => {
+      return goals().filter((g) => !g.isCompleted && g.isSkipped);
     });
 
     const completedGoals = computed(() => {
@@ -91,9 +95,19 @@ export const WorthItStore = signalStore(
       return calculator.calculateWealthSummary(
         store.assets(),
         store.entities(),
-        store.settings().cushion
+        store.settings().cushion,
+        store.incomeRecords(),
+        store.expenseRecords()
       );
     });
+
+    /** Actual records not yet reflected in asset balances (they adjust wealth). */
+    const pendingIncomeRecords = computed(() =>
+      store.incomeRecords().filter((r) => r.isActual && !r.isReflectedInBalances)
+    );
+    const pendingExpenseRecords = computed(() =>
+      store.expenseRecords().filter((r) => r.isActual && !r.isReflectedInBalances)
+    );
 
     const monthlySurplusSummary = computed(() => {
       return calculator.calculateMonthlySurplusSummary(
@@ -140,8 +154,11 @@ export const WorthItStore = signalStore(
       goals,
       activeGoal,
       upcomingGoals,
+      skippedGoals,
       completedGoals,
       wealthSummary,
+      pendingIncomeRecords,
+      pendingExpenseRecords,
       monthlySurplusSummary,
       financialCushionStatus,
       goalsWithFunding,
@@ -294,12 +311,57 @@ export const WorthItStore = signalStore(
 
         await storage.saveGoal(updated);
         patchState(store, updateEntity({ id, changes: updated }));
+
+        // Spec §3.3: "Spend" records the actual amount spent and reduces total wealth.
+        // It is stored as an actual expense so the standard accounting rule applies
+        // (it stops adjusting wealth once the user reflects it in asset balances).
+        if (completionChoice === 'spend' && (updated.spentAmount ?? 0) > 0) {
+          const expense: ExpenseRecord = {
+            id: generateId(),
+            categoryName: `Goal: ${updated.name}`,
+            amount: updated.spentAmount ?? 0,
+            currency: store.settings().baseCurrency || 'PLN',
+            date: now,
+            isActual: true,
+            isReflectedInBalances: false,
+            goalId: id,
+            note: 'Recorded when the goal was completed',
+          };
+          await storage.saveExpenseRecord(expense);
+          patchState(store, (state) => ({
+            expenseRecords: [...state.expenseRecords, expense],
+          }));
+        }
+        return updated;
+      },
+
+      async skipGoal(id: string, isSkipped = true): Promise<Goal | undefined> {
+        const current = store.entityMap()[id];
+        if (!current || current.isCompleted) return undefined;
+        const updated: Goal = {
+          ...current,
+          isSkipped,
+          updatedAt: new Date().toISOString(),
+        };
+        await storage.saveGoal(updated);
+        patchState(store, updateEntity({ id, changes: updated }));
         return updated;
       },
 
       async uncompleteGoal(id: string): Promise<Goal | undefined> {
         const current = store.entityMap()[id];
         if (!current) return undefined;
+
+        // Undo the auto-created "spend" expense, if any.
+        const goalExpenses = store.expenseRecords().filter((r) => r.goalId === id);
+        for (const r of goalExpenses) {
+          await storage.deleteExpenseRecord(r.id);
+        }
+        if (goalExpenses.length) {
+          patchState(store, (state) => ({
+            expenseRecords: state.expenseRecords.filter((r) => r.goalId !== id),
+          }));
+        }
 
         const now = new Date().toISOString();
         const updated: Goal = {
@@ -527,6 +589,52 @@ export const WorthItStore = signalStore(
         }));
       },
 
+      async updateIncomeRecord(
+        id: string,
+        changes: Partial<IncomeRecord>
+      ): Promise<IncomeRecord | undefined> {
+        const current = store.incomeRecords().find((r) => r.id === id);
+        if (!current) return undefined;
+        const updated: IncomeRecord = { ...current, ...changes, id };
+        await storage.saveIncomeRecord(updated);
+        patchState(store, (state) => ({
+          incomeRecords: state.incomeRecords.map((r) => (r.id === id ? updated : r)),
+        }));
+        return updated;
+      },
+
+      /**
+       * Marks actual income/expense records as reflected in asset balances, so they stop
+       * adjusting wealth (prevents double counting after a manual balance update).
+       * With no ids given, all currently pending records are marked.
+       */
+      async markRecordsReflected(ids?: {
+        incomeIds?: string[];
+        expenseIds?: string[];
+      }): Promise<void> {
+        const incomeIds = new Set(
+          ids?.incomeIds ??
+            store.incomeRecords().filter((r) => r.isActual && !r.isReflectedInBalances).map((r) => r.id)
+        );
+        const expenseIds = new Set(
+          ids?.expenseIds ??
+            store.expenseRecords().filter((r) => r.isActual && !r.isReflectedInBalances).map((r) => r.id)
+        );
+        const income = store
+          .incomeRecords()
+          .map((r) => (incomeIds.has(r.id) ? { ...r, isReflectedInBalances: true } : r));
+        const expenses = store
+          .expenseRecords()
+          .map((r) => (expenseIds.has(r.id) ? { ...r, isReflectedInBalances: true } : r));
+        for (const r of income.filter((r) => incomeIds.has(r.id))) {
+          await storage.saveIncomeRecord(r);
+        }
+        for (const r of expenses.filter((r) => expenseIds.has(r.id))) {
+          await storage.saveExpenseRecord(r);
+        }
+        patchState(store, { incomeRecords: income, expenseRecords: expenses });
+      },
+
       // --- Expense Methods ---
       async addExpenseCategory(
         catInput: Partial<ExpenseCategory> & {
@@ -620,6 +728,20 @@ export const WorthItStore = signalStore(
         }));
       },
 
+      async updateExpenseRecord(
+        id: string,
+        changes: Partial<ExpenseRecord>
+      ): Promise<ExpenseRecord | undefined> {
+        const current = store.expenseRecords().find((r) => r.id === id);
+        if (!current) return undefined;
+        const updated: ExpenseRecord = { ...current, ...changes, id };
+        await storage.saveExpenseRecord(updated);
+        patchState(store, (state) => ({
+          expenseRecords: state.expenseRecords.map((r) => (r.id === id ? updated : r)),
+        }));
+        return updated;
+      },
+
       // --- Stock Sales Methods ---
       async addStockSale(
         saleInput: Partial<StockSale> & {
@@ -659,6 +781,33 @@ export const WorthItStore = signalStore(
         patchState(store, (state) => ({
           stockSales: state.stockSales.filter((s) => s.id !== id),
         }));
+      },
+
+      /** Stock sales are standalone: updating one never touches assets or wealth (spec §10.2). */
+      async updateStockSale(
+        id: string,
+        changes: Partial<StockSale>
+      ): Promise<StockSale | undefined> {
+        const current = store.stockSales().find((s) => s.id === id);
+        if (!current) return undefined;
+        const merged: StockSale = { ...current, ...changes, id };
+        const updated: StockSale = {
+          ...merged,
+          grossValue:
+            changes.grossValue !== undefined
+              ? Number(changes.grossValue)
+              : Math.round(merged.sharesSold * merged.pricePerShare * 100) / 100,
+        };
+        await storage.saveStockSale(updated);
+        patchState(store, (state) => ({
+          stockSales: state.stockSales.map((s) => (s.id === id ? updated : s)),
+        }));
+        return updated;
+      },
+
+      /** Reloads everything from IndexedDB (e.g. after a JSON import). */
+      async reload(): Promise<void> {
+        await this.loadAll();
       },
 
       // --- Settings Methods ---
