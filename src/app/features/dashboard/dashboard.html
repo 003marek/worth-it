@@ -1,0 +1,509 @@
+<div class="page dashboard-container">
+  <!-- Header with layout toggle -->
+  <header class="dashboard-header">
+    <div class="header-titles">
+      <h1>Dashboard</h1>
+      <p class="header-subtitle">
+        @if (currentLayout() === 'goal_first') {
+          Tracking your active milestones and life goals
+        } @else {
+          Comprehensive financial position and asset distribution
+        }
+      </p>
+    </div>
+
+    <mat-button-toggle-group
+      class="layout-toggle-group"
+      [value]="currentLayout()"
+      (change)="onLayoutChange($event.value)"
+      aria-label="Dashboard layout selection"
+    >
+      <mat-button-toggle value="goal_first" aria-label="Goal-First Layout">
+        <mat-icon>flag</mat-icon>
+        Goal-First
+      </mat-button-toggle>
+      <mat-button-toggle value="financial_overview" aria-label="Financial Overview Layout">
+        <mat-icon>account_balance</mat-icon>
+        Financial Overview
+      </mat-button-toggle>
+    </mat-button-toggle-group>
+  </header>
+
+  <!-- Welcoming onboarding card when database is completely empty -->
+  @if (isEmptyDatabase()) {
+    <mat-card class="onboarding-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="onboarding-icon">auto_awesome</mat-icon>
+        <mat-card-title>Welcome to Worth It</mat-card-title>
+        <mat-card-subtitle>Map your real wealth to the milestones that matter to you</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <p>
+          Worth It pairs your actual wealth with sequential goal funding and a protected cushion.
+          Load our sample financial journey to explore how it works, or start fresh by recording your assets.
+        </p>
+      </mat-card-content>
+      <mat-card-actions class="onboarding-actions">
+        <button
+          mat-flat-button
+          color="primary"
+          (click)="loadDemoData()"
+          [disabled]="isLoadingDemo()"
+        >
+          <mat-icon>play_circle</mat-icon>
+          Load sample financial journey (Demo Data)
+        </button>
+        <a mat-stroked-button routerLink="/assets">
+          <mat-icon>add_circle_outline</mat-icon>
+          Add Assets
+        </a>
+        <a mat-stroked-button routerLink="/goals">
+          <mat-icon>flag</mat-icon>
+          Create Goal
+        </a>
+      </mat-card-actions>
+    </mat-card>
+  }
+
+  <!-- LAYOUT A: GOAL-FIRST DASHBOARD -->
+  @if (currentLayout() === 'goal_first') {
+    <div class="goal-first-layout">
+      <!-- 1. Hero Active Goal Card -->
+      <mat-card class="dash-card hero-goal-card">
+        <mat-card-content>
+          <div class="dash-card-header card-top-bar">
+            <span class="priority-badge">
+              <mat-icon>star</mat-icon> Current Focus Goal
+            </span>
+            <a routerLink="/goals" class="goal-link">
+              Manage Goals <mat-icon>arrow_forward</mat-icon>
+            </a>
+          </div>
+
+          @if (activeGoalSummary(); as active) {
+            <div class="goal-title-row">
+              <h2 class="goal-name">{{ active.goal.name }}</h2>
+              <span class="goal-target">
+                Target: {{ active.goal.targetAmount | money:currency() }}
+              </span>
+            </div>
+
+            <div class="progress-section">
+              <div class="progress-bar-wrapper">
+                <mat-progress-bar
+                  mode="determinate"
+                  [value]="active.progressPercent"
+                  color="primary"
+                ></mat-progress-bar>
+              </div>
+              <div class="progress-stats">
+                <span>
+                  Funded:
+                  <strong class="stat-highlight">
+                    {{ active.currentProgress | money:currency() }}
+                  </strong>
+                  ({{ active.progressPercent | number:'1.0-0' }}%)
+                </span>
+                <span>
+                  Remaining:
+                  <strong class="stat-highlight">
+                    {{ active.remainingAmount | money:currency() }}
+                  </strong>
+                </span>
+              </div>
+            </div>
+
+            <!-- Clearly separated Projected completion box (styled with .projected) -->
+            <div class="projected-completion-box projected">
+              <div class="projected-header">
+                <mat-icon>insights</mat-icon>
+                <span>Projected Timeline</span>
+              </div>
+
+              @if (active.isFullyFunded) {
+                <div class="projected-timeline">
+                  <span class="projected-date">Fully Funded Today! 🎉</span>
+                </div>
+                <p class="assumption-note">
+                  This goal has reached 100% funding and is ready to be completed in the Goals tab.
+                </p>
+              } @else if (monthlySurplus() <= 0) {
+                <div class="projected-timeline">
+                  <span class="projected-date">Timeline unavailable</span>
+                </div>
+                <p class="assumption-note">
+                  Monthly surplus is currently {{ monthlySurplus() | money:currency() }}/mo.
+                  Projected completion requires a positive monthly surplus. Check Cash Flow to adjust income/expenses.
+                </p>
+              } @else {
+                <div class="projected-timeline">
+                  <span class="projected-date">
+                    {{ active.estimatedCompletionDate | date:'MMMM yyyy' }}
+                  </span>
+                  <span class="projected-duration">
+                    ({{ active.estimatedCompletionMonths | months }})
+                  </span>
+                </div>
+                <p class="assumption-note">
+                  Projected from expected monthly surplus of {{ monthlySurplus() | money:currency() }}/mo
+                  after satisfying protected cushion requirements.
+                </p>
+              }
+            </div>
+          } @else if (completedGoalsCount() > 0) {
+            <app-empty-state
+              icon="emoji_events"
+              title="All goals completed! 🎉"
+              message="Congratulations! You have funded all your planned goals. Add your next dream to continue your journey."
+            >
+              <a mat-flat-button color="primary" routerLink="/goals">
+                <mat-icon>add</mat-icon> Add New Goal
+              </a>
+            </app-empty-state>
+          } @else {
+            <app-empty-state
+              icon="flag"
+              title="No active goals yet"
+              message="Set your first financial milestone to see live progress and projected completion dates."
+            >
+              <a mat-flat-button color="primary" routerLink="/goals">
+                <mat-icon>add</mat-icon> Create Goal
+              </a>
+            </app-empty-state>
+          }
+        </mat-card-content>
+      </mat-card>
+
+      <!-- 2. Financial Cushion Status Card -->
+      <mat-card class="dash-card cushion-card">
+        <mat-card-content>
+          <div class="dash-card-header cushion-header">
+            <div class="cushion-title-group">
+              <mat-icon>shield</mat-icon>
+              <h3>Financial Cushion Status</h3>
+            </div>
+            <span
+              class="status-badge"
+              [class.enabled]="cushionStatus().isEnabled"
+              [class.disabled]="!cushionStatus().isEnabled"
+            >
+              {{ cushionStatus().isEnabled ? 'Enabled' : 'Disabled' }}
+            </span>
+          </div>
+
+          @if (cushionStatus().isEnabled) {
+            @if (cushionStatus().deficit > 0) {
+              <!-- Priority banner when enabled & deficit > 0 -->
+              <div class="priority-banner">
+                <mat-icon>warning</mat-icon>
+                <span>
+                  Protected reserve has funding priority — new savings replenish the cushion
+                  (<strong>{{ cushionStatus().deficit | money:currency() }}</strong> needed)
+                  before active goal funding resumes.
+                </span>
+              </div>
+            }
+
+            <div class="cushion-grid">
+              <div class="cushion-stat">
+                <span class="stat-label">Target Reserve</span>
+                <span class="stat-val">{{ cushionStatus().target | money:currency() }}</span>
+              </div>
+              <div class="cushion-stat">
+                <span class="stat-label">Funded Amount</span>
+                <span class="stat-val">{{ cushionStatus().funded | money:currency() }}</span>
+              </div>
+              <div class="cushion-stat">
+                <span class="stat-label">Progress</span>
+                <span class="stat-val">{{ cushionStatus().percent | number:'1.0-0' }}%</span>
+              </div>
+              <div class="cushion-stat">
+                <span class="stat-label">Deficit</span>
+                <span class="stat-val" [class.negative]="cushionStatus().deficit > 0">
+                  {{ cushionStatus().deficit | money:currency() }}
+                </span>
+              </div>
+            </div>
+
+            <div class="cushion-progress">
+              <mat-progress-bar
+                mode="determinate"
+                [value]="cushionStatus().percent"
+                color="primary"
+              ></mat-progress-bar>
+            </div>
+          } @else {
+            <p class="cushion-disabled-msg">
+              The financial cushion is currently disabled. All goal-eligible wealth directly funds your goals without a reserve buffer.
+            </p>
+          }
+
+          <div class="cushion-actions">
+            <a routerLink="/settings">
+              <mat-icon>tune</mat-icon> Configure Cushion in Settings
+            </a>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- 3. Upcoming Goals Preview List -->
+      <mat-card class="dash-card upcoming-goals-card">
+        <mat-card-content>
+          <div class="dash-card-header section-header">
+            <h3>Upcoming Goals Queue</h3>
+            <a routerLink="/goals">View All Goals</a>
+          </div>
+
+          @if (upcomingGoalsFunding().length > 0) {
+            <div class="goals-list">
+              @for (item of upcomingGoalsFunding(); track item.goal.id) {
+                <div class="upcoming-goal-row">
+                  <div class="row-main">
+                    <div class="goal-info">
+                      <span class="order-badge">#{{ item.goal.order + 1 }}</span>
+                      <span class="goal-name-text">{{ item.goal.name }}</span>
+                    </div>
+                    <div class="amounts-info">
+                      <span class="target-val">
+                        Target: {{ item.goal.targetAmount | money:currency() }}
+                      </span>
+                      <span class="remaining-sub">
+                        Distance: {{ item.remainingAmount | money:currency() }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="row-progress">
+                    <mat-progress-bar
+                      mode="determinate"
+                      [value]="item.progressPercent"
+                    ></mat-progress-bar>
+                  </div>
+
+                  <div class="row-timeline">
+                    <span class="cascaded-label">
+                      Cascaded Wealth: {{ item.currentProgress | money:currency() }}
+                    </span>
+                    <span class="projected">
+                      @if (item.isFullyFunded) {
+                        Fully Funded
+                      } @else if (item.estimatedCompletionDate) {
+                        Est: {{ item.estimatedCompletionDate | date:'MMM yyyy' }} ({{ item.estimatedCompletionMonths | months }})
+                      } @else {
+                        Timeline pending surplus
+                      }
+                    </span>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <app-empty-state
+              icon="playlist_add"
+              title="No upcoming goals in queue"
+              message="Upcoming goals are funded automatically after your focus goal reaches completion."
+            >
+              <a mat-button color="primary" routerLink="/goals">
+                <mat-icon>add</mat-icon> Add Upcoming Goal
+              </a>
+            </app-empty-state>
+          }
+        </mat-card-content>
+      </mat-card>
+    </div>
+  }
+
+  <!-- LAYOUT B: FINANCIAL OVERVIEW DASHBOARD -->
+  @if (currentLayout() === 'financial_overview') {
+    <div class="financial-overview-layout">
+      <!-- 1. Wealth Breakdown Grid -->
+      <section class="metrics-grid">
+        <app-metric-tile
+          label="Total Wealth"
+          [value]="wealthSummary().totalWealth"
+          [hint]="totalWealthHint()"
+          icon="account_balance_wallet"
+          [currency]="currency()"
+        />
+
+        <app-metric-tile
+          label="Goal-Eligible Wealth"
+          [value]="wealthSummary().goalEligibleWealth"
+          [hint]="'Excluded: ' + (wealthSummary().excludedWealth | money:currency())"
+          icon="savings"
+          [currency]="currency()"
+        />
+
+        <app-metric-tile
+          label="Financial Cushion"
+          [value]="wealthSummary().cushionFunded"
+          [hint]="'Target: ' + (wealthSummary().cushionTarget | money:currency())"
+          icon="shield"
+          [currency]="currency()"
+        />
+
+        <app-metric-tile
+          label="Completed-Goal Reserves"
+          [value]="wealthSummary().reservedAmounts"
+          hint="Reserved for future spend"
+          icon="lock"
+          [currency]="currency()"
+        />
+
+        <app-metric-tile
+          label="Available Goal Wealth"
+          [value]="wealthSummary().availableForGoals"
+          hint="Available for active milestones"
+          icon="flag"
+          tone="positive"
+          [currency]="currency()"
+        />
+      </section>
+
+      <!-- 2. Monthly Cash Flow & Surplus Card -->
+      <mat-card class="dash-card cash-flow-card">
+        <mat-card-content>
+          <div class="dash-card-header cf-header">
+            <h3>Monthly Cash Flow & Surplus</h3>
+            <a routerLink="/cashflow">Manage Cash Flow</a>
+          </div>
+
+          <div class="cf-row">
+            <div class="cf-col">
+              <span class="cf-label">Expected Monthly Income</span>
+              <span class="cf-value">
+                {{ monthlySurplusSummary().monthlyIncome | money:currency() }}
+              </span>
+            </div>
+            <span class="cf-operator">−</span>
+            <div class="cf-col">
+              <span class="cf-label">Expected Monthly Expenses</span>
+              <span class="cf-value">
+                {{ monthlySurplusSummary().monthlyExpenses | money:currency() }}
+              </span>
+            </div>
+            <span class="cf-operator">=</span>
+            <div class="cf-col">
+              <span class="cf-label">Monthly Surplus</span>
+              <span
+                class="cf-value"
+                [class.positive]="monthlySurplusSummary().monthlySurplus > 0"
+                [class.negative]="monthlySurplusSummary().monthlySurplus < 0"
+              >
+                {{ monthlySurplusSummary().monthlySurplus | money:currency() }}
+              </span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- 3. Asset Breakdown & Active Goal Side-by-Side -->
+      <div class="two-col-grid">
+        <!-- Asset Breakdown List -->
+        <mat-card class="dash-card assets-card">
+          <mat-card-content>
+            <div class="dash-card-header card-header-row">
+              <h3>Assets Breakdown</h3>
+              <a routerLink="/assets">View All Assets</a>
+            </div>
+
+            @if (store.assets().length > 0) {
+              <div class="assets-list">
+                @for (asset of assetBreakdown(); track asset.id) {
+                  <div class="asset-item">
+                    <div class="asset-left">
+                      <span class="asset-name">{{ asset.name }}</span>
+                      <div class="asset-meta">
+                        <span>{{ formatAssetType(asset.type) }}</span>
+                        <span
+                          class="eligibility-tag"
+                          [class.eligible]="asset.isGoalEligible"
+                          [class.excluded]="!asset.isGoalEligible"
+                        >
+                          {{ asset.isGoalEligible ? 'Goal-eligible' : 'Excluded' }}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="asset-right">
+                      <span class="asset-balance">
+                        {{ asset.balance | money:asset.currency }}
+                      </span>
+                      <div class="asset-percent">
+                        {{ asset.percentOfTotal | number:'1.1-1' }}% of total
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <app-empty-state
+                icon="account_balance_wallet"
+                title="No assets recorded"
+                message="Add bank accounts, investments, or cash to compute your real wealth."
+              >
+                <a mat-stroked-button routerLink="/assets">Add Asset</a>
+              </app-empty-state>
+            }
+          </mat-card-content>
+        </mat-card>
+
+        <!-- Active Goal Summary Card -->
+        <mat-card class="dash-card active-goal-summary-card">
+          <mat-card-content>
+            <div class="dash-card-header card-header-row">
+              <h3>Active Goal Progress</h3>
+              <a routerLink="/goals">Goals Roadmap</a>
+            </div>
+
+            @if (activeGoalSummary(); as active) {
+              <app-progress-card
+                [label]="active.goal.name"
+                [current]="active.currentProgress"
+                [target]="active.goal.targetAmount"
+                [percent]="active.progressPercent"
+                [subtitle]="active.isFullyFunded ? 'Fully Funded' : ('Remaining: ' + (active.remainingAmount | money:currency()))"
+                [currency]="currency()"
+              />
+
+              <div class="projected-completion-box projected" style="margin-top: 16px;">
+                <div class="projected-header">
+                  <mat-icon>insights</mat-icon>
+                  <span>Projected Completion</span>
+                </div>
+                @if (active.isFullyFunded) {
+                  <div class="projected-timeline">
+                    <span class="projected-date">Fully Funded</span>
+                  </div>
+                } @else if (active.estimatedCompletionDate) {
+                  <div class="projected-timeline">
+                    <span class="projected-date">
+                      {{ active.estimatedCompletionDate | date:'MMMM yyyy' }}
+                    </span>
+                    <span class="projected-duration">
+                      ({{ active.estimatedCompletionMonths | months }})
+                    </span>
+                  </div>
+                  <p class="assumption-note">
+                    Based on current monthly surplus of {{ monthlySurplus() | money:currency() }}/mo
+                  </p>
+                } @else {
+                  <p class="assumption-note">
+                    Requires positive monthly surplus in Cash Flow.
+                  </p>
+                }
+              </div>
+            } @else {
+              <app-empty-state
+                icon="flag"
+                title="No active goal"
+                message="No goal is currently active. Add or activate a goal in Goals."
+              >
+                <a mat-stroked-button routerLink="/goals">Set Goal</a>
+              </app-empty-state>
+            }
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </div>
+  }
+</div>

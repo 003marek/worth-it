@@ -1,0 +1,276 @@
+<div class="assets-page">
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="header-titles">
+      <h1 class="page-title">Assets &amp; Wealth</h1>
+      <p class="page-subtitle">Track your accounts, investments, and funds allocated towards goals</p>
+    </div>
+    <div class="header-actions">
+      <button mat-flat-button color="primary" (click)="openAddAssetDialog()">
+        <mat-icon>add</mat-icon>
+        <span>Add asset</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Top Summary Metrics -->
+  <section class="metrics-grid" aria-label="Wealth summary metrics">
+    <app-metric-tile
+      label="Total Wealth"
+      [value]="wealthSummary().totalWealth"
+      [hint]="totalWealthHint()"
+      icon="account_balance"
+      tone="default"
+    />
+    <app-metric-tile
+      label="Goal-Eligible Wealth"
+      [value]="wealthSummary().goalEligibleWealth"
+      hint="Active in financial goal calculations"
+      icon="savings"
+      tone="positive"
+    />
+    <app-metric-tile
+      label="Excluded Wealth"
+      [value]="wealthSummary().excludedWealth"
+      hint="Toggled off from financial goals"
+      icon="visibility_off"
+      tone="default"
+    />
+    <app-metric-tile
+      label="Available for Goals"
+      [value]="wealthSummary().availableForGoals"
+      hint="After cushion &amp; reserved goal funds"
+      icon="flag"
+      tone="positive"
+    />
+  </section>
+
+  <!-- Pending Accounting Adjustments Banner -->
+  @if (wealthSummary().pendingAdjustments !== 0) {
+    <section class="pending-adjustments-banner" role="status">
+      <div class="banner-body">
+        <mat-icon class="banner-icon">info</mat-icon>
+        <div class="banner-copy">
+          <strong>Accounting adjustment:</strong>
+          Unreflected actual income/expenses are currently adjusting wealth by
+          <span
+            class="adj-pill"
+            [class.positive]="wealthSummary().pendingAdjustments > 0"
+            [class.negative]="wealthSummary().pendingAdjustments < 0"
+          >
+            {{ wealthSummary().pendingAdjustments > 0 ? '+' : '' }}{{ wealthSummary().pendingAdjustments | money }}
+          </span>.
+          After updating your balances, mark all records as reflected so they aren't counted twice.
+        </div>
+      </div>
+      <button
+        mat-flat-button
+        color="primary"
+        (click)="onMarkAllReflected()"
+        class="banner-action-btn"
+      >
+        <mat-icon>done_all</mat-icon>
+        <span>Mark all reflected in current balances</span>
+      </button>
+    </section>
+  }
+
+  <!-- Asset Type Breakdown & Share Bar -->
+  @if (typeBreakdown().length > 0) {
+    <section class="breakdown-card">
+      <div class="breakdown-header">
+        <h2 class="breakdown-title">Asset Allocation</h2>
+        <span class="breakdown-total">
+          Recorded total: <strong>{{ wealthSummary().recordedAssetsTotal | money }}</strong>
+        </span>
+      </div>
+
+      <!-- Segmented allocation bar -->
+      <div class="breakdown-bar" aria-label="Asset allocation bar">
+        @for (item of typeBreakdown(); track item.type) {
+          <div
+            class="breakdown-bar-segment segment-{{ item.type }}"
+            [style.width.%]="item.percentage"
+            [matTooltip]="item.label + ': ' + item.percentage + '% (' + (item.totalInBase | money) + ')'"
+          ></div>
+        }
+      </div>
+
+      <!-- Allocation breakdown chips -->
+      <div class="breakdown-chips-row">
+        @for (item of typeBreakdown(); track item.type) {
+          <button
+            type="button"
+            class="breakdown-chip"
+            [class.active]="selectedTypeFilter() === item.type"
+            (click)="toggleTypeFilter(item.type)"
+          >
+            <mat-icon class="chip-icon">{{ item.icon }}</mat-icon>
+            <span class="chip-name">{{ item.label }}</span>
+            <span class="chip-amount">{{ item.totalInBase | money }}</span>
+            <span class="chip-pct">{{ item.percentage }}%</span>
+          </button>
+        }
+      </div>
+    </section>
+  }
+
+  <!-- Filter Bar -->
+  @if (store.assets().length > 0) {
+    <section class="filter-controls-row">
+      <div class="filter-pills" role="tablist" aria-label="Goal eligibility filter">
+        <button
+          type="button"
+          class="filter-pill"
+          [class.active]="goalFilter() === 'all'"
+          (click)="setGoalFilter('all')"
+        >
+          All ({{ store.assets().length }})
+        </button>
+        <button
+          type="button"
+          class="filter-pill"
+          [class.active]="goalFilter() === 'goal_eligible'"
+          (click)="setGoalFilter('goal_eligible')"
+        >
+          Goal-eligible only
+        </button>
+        <button
+          type="button"
+          class="filter-pill"
+          [class.active]="goalFilter() === 'excluded'"
+          (click)="setGoalFilter('excluded')"
+        >
+          Excluded only
+        </button>
+      </div>
+
+      @if (selectedTypeFilter()) {
+        <button mat-button class="clear-type-filter-btn" (click)="clearTypeFilter()">
+          <mat-icon>close</mat-icon>
+          <span>Filtering by: {{ getTypeInfo(selectedTypeFilter()!).label }}</span>
+        </button>
+      }
+    </section>
+  }
+
+  <!-- Asset List / Grid -->
+  @if (store.assets().length > 0) {
+    <section class="assets-grid" aria-label="Asset cards list">
+      @for (asset of filteredAssets(); track asset.id) {
+        <mat-card class="asset-card" [class.excluded-asset]="!asset.isGoalEligible">
+          <!-- Card Header -->
+          <mat-card-header class="card-header">
+            <div class="header-left">
+              <div class="type-badge" [class]="'type-' + asset.type">
+                <mat-icon>{{ getTypeInfo(asset.type).icon }}</mat-icon>
+              </div>
+              <div class="name-block">
+                <h3 class="asset-name">{{ asset.name }}</h3>
+                <span class="type-name">{{ getTypeInfo(asset.type).label }}</span>
+              </div>
+            </div>
+
+            <button
+              mat-icon-button
+              [matMenuTriggerFor]="menu"
+              aria-label="More options for asset"
+              class="more-btn"
+            >
+              <mat-icon>more_vert</mat-icon>
+            </button>
+            <mat-menu #menu="matMenu">
+              <button mat-menu-item (click)="openEditAssetDialog(asset)">
+                <mat-icon>edit</mat-icon>
+                <span>Edit details</span>
+              </button>
+              <button mat-menu-item (click)="openHistoryDialog(asset)">
+                <mat-icon>history</mat-icon>
+                <span>Balance history</span>
+              </button>
+              <button mat-menu-item (click)="onDeleteAsset(asset)" class="danger-action">
+                <mat-icon color="warn">delete</mat-icon>
+                <span>Delete asset</span>
+              </button>
+            </mat-menu>
+          </mat-card-header>
+
+          <!-- Card Body -->
+          <mat-card-content class="card-content">
+            <div class="balance-container">
+              <div class="primary-balance">
+                {{ asset.balance | money:asset.currency }}
+              </div>
+              @if (asset.currency !== 'PLN') {
+                <div class="exchange-equivalent">
+                  ≈ {{ getAssetBaseValue(asset) | money:'PLN' }}
+                  <span class="rate-note">
+                    (1 {{ asset.currency }} = {{ asset.exchangeRateToBase || 1 }} PLN)
+                  </span>
+                </div>
+              }
+            </div>
+
+            <div class="card-meta-row">
+              <span class="updated-date">Updated {{ asset.updatedAt | date:'mediumDate' }}</span>
+            </div>
+
+            <!-- Inline Goal Eligibility Slide Toggle -->
+            <div class="eligibility-toggle-row">
+              <mat-slide-toggle
+                [checked]="asset.isGoalEligible"
+                (change)="onToggleGoalEligible(asset)"
+                color="primary"
+              >
+                <span class="toggle-label">Goal eligibility</span>
+              </mat-slide-toggle>
+              <span class="toggle-status" [class.active]="asset.isGoalEligible">
+                {{ asset.isGoalEligible ? 'Counts towards goals' : 'Excluded from goals' }}
+              </span>
+            </div>
+          </mat-card-content>
+
+          <!-- Card Actions -->
+          <mat-card-actions class="card-actions">
+            <button
+              mat-flat-button
+              color="primary"
+              (click)="openUpdateBalanceDialog(asset)"
+              class="action-update-btn"
+            >
+              <mat-icon>sync_alt</mat-icon>
+              <span>Update balance</span>
+            </button>
+            <button
+              mat-stroked-button
+              (click)="openHistoryDialog(asset)"
+              class="action-history-btn"
+            >
+              <mat-icon>history</mat-icon>
+              <span>History</span>
+            </button>
+          </mat-card-actions>
+        </mat-card>
+      } @empty {
+        <div class="no-filter-results">
+          <p>No assets match the active filters.</p>
+          <button mat-button (click)="setGoalFilter('all'); clearTypeFilter()">
+            Reset filters
+          </button>
+        </div>
+      }
+    </section>
+  } @else {
+    <!-- Empty State -->
+    <app-empty-state
+      icon="account_balance_wallet"
+      title="No assets recorded yet"
+      description="Add your bank accounts, cash, investments, and retirement accounts to track your net worth and fund financial goals."
+    >
+      <button mat-flat-button color="primary" (click)="openAddAssetDialog()">
+        <mat-icon>add</mat-icon>
+        <span>Add your first asset</span>
+      </button>
+    </app-empty-state>
+  }
+</div>

@@ -1,59 +1,41 @@
-# WorthItApp
+# Worth It
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.2.6.
+> *"How far am I from affording the life I want?"*
 
-## Development server
+**Worth It** is an offline-first personal financial progress tracker built as an Angular 22 Progressive Web App (PWA). Unlike traditional budgeting apps, Worth It is organized around sequential financial goals, real asset balances, a protected Financial Cushion reserve, and transparent actual-vs-projected timelines.
 
-To start a local development server, run:
+## Tech Stack
 
-```bash
-ng serve
-```
+- **Framework**: Angular 22 (Zoneless change detection, Standalone components, `OnPush`)
+- **Forms**: Angular Signal Forms (`@angular/forms/signals` — `form()`, `[formRoot]`, `[formField]`, schema validation)
+- **State Management**: `@ngrx/signals` (`signalStore`, `withEntities`, `withComputed`, `withMethods`)
+- **UI & Theming**: Angular Material 22 (Material 3 design system with Light, Dark, and System themes)
+- **Persistence**: Offline-first IndexedDB via `Dexie` (`WorthItDB`) + Service Worker (`@angular/service-worker`)
+- **Testing**: Vitest (`146` unit & integration tests across `14` spec files)
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## Key Features
 
-## Code scaffolding
+- **Sequential Goals & Funding Waterfall** (`/goals`): Prioritize life goals with additional-amount targets, drag-and-drop reordering, goal skipping/resuming, and three completion choices (**Spend**, **Reserve**, **Release**).
+- **Financial Cushion** (`/settings`, `/dashboard`): Protected emergency reserve (`Average Monthly Expenses × Coverage Months`) automatically funded and replenished before life goals.
+- **Wealth & Assets** (`/assets`): Manual multi-currency asset tracking with goal-eligibility toggles, balance history snapshots, and one-click reconciliation of pending actual income/expenses to prevent double counting.
+- **Income & Expenses Cash Flow** (`/cashflow`): Expected salary & other income sources, variable salary updates with preserved historical baselines, hybrid expense categories + simple overall monthly baseline, and actual monthly entries.
+- **Actual vs. Projected Progress & What-If Simulator** (`/projections`): Strict separation between confirmed actual balances and forward projections, plus an interactive Signal Form simulator for testing extra monthly savings or windfalls.
+- **Two Switchable Dashboard Layouts** (`/dashboard`): **Goal-First Dashboard** and **Financial Overview Dashboard**.
+- **Standalone Stock Sales Log** (`/stock-sales`): Historical stock sale records with PLN conversion, explicitly isolated from asset balances and total wealth.
+- **JSON Backup & Restore** (`/settings`): Full local database export and validated transactional import.
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
+## Development
 
 ```bash
-ng build
+# Install dependencies
+npm install
+
+# Start dev server (http://localhost:4200)
+npm start
+
+# Production PWA build
+npm run build
+
+# Run Vitest unit tests
+npx ng test --no-watch
 ```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.

@@ -1,0 +1,408 @@
+.goals-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+// Header
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--mat-sys-on-surface);
+  letter-spacing: -0.02em;
+}
+
+.page-subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.9375rem;
+}
+
+.add-goal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-weight: 600;
+}
+
+// Summary Metrics Strip
+.summary-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.summary-tile {
+  min-height: 100px;
+}
+
+// Cushion Deficit Warning Banner
+.warning-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background-color: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+  border-radius: 12px;
+  padding: 0.875rem 1.25rem;
+
+  .banner-icon {
+    color: var(--mat-sys-error);
+    font-size: 1.5rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+  }
+
+  .banner-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+
+    p {
+      margin: 0;
+      opacity: 0.9;
+    }
+  }
+}
+
+// Sections
+.goals-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--mat-sys-on-surface);
+}
+
+.section-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+// Lists & Drop List
+.goals-drop-list,
+.goals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.goal-item-wrapper {
+  position: relative;
+}
+
+// Drag & Drop CDK styles
+.cdk-drag-preview {
+  box-sizing: border-box;
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  background: var(--mat-sys-surface-container-highest);
+}
+
+.cdk-drag-placeholder {
+  opacity: 0.25;
+}
+
+.cdk-drag-animating {
+  transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.goals-drop-list.cdk-drop-list-dragging .goal-item-wrapper:not(.cdk-drag-placeholder) {
+  transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+// Goal Cards
+.goal-card {
+  border-radius: 12px;
+  background-color: var(--mat-sys-surface-container);
+  border: 1px solid var(--mat-sys-outline-variant);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &.active-card {
+    border: 2px solid var(--mat-sys-primary);
+    background-color: var(--mat-sys-surface-container-high);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  &.skipped-card,
+  &.completed-card {
+    background-color: var(--mat-sys-surface-container-low);
+  }
+}
+
+.goal-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+// Header Row in Card
+.card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.6;
+  user-select: none;
+
+  &:hover {
+    opacity: 1;
+    color: var(--mat-sys-primary);
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.goal-name {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--mat-sys-on-surface);
+}
+
+.amount-tag {
+  font-size: 0.875rem;
+  color: var(--mat-sys-on-surface-variant);
+  margin-left: 0.5rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+
+  .complete-btn {
+    font-weight: 600;
+  }
+}
+
+// Badges
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  letter-spacing: 0.02em;
+
+  .badge-icon {
+    font-size: 1rem;
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+.active-badge {
+  background-color: var(--mat-sys-primary);
+  color: var(--mat-sys-on-primary);
+}
+
+.upcoming-badge {
+  background-color: var(--mat-sys-surface-container-highest);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.skipped-badge {
+  background-color: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+}
+
+.spend-badge {
+  background-color: var(--mat-sys-tertiary-container);
+  color: var(--mat-sys-on-tertiary-container);
+}
+
+.reserve-badge {
+  background-color: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+
+.release-badge {
+  background-color: var(--mat-sys-surface-variant, #e1e2ec);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+// Metrics Grid
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.75rem;
+  background-color: var(--mat-sys-surface-container-low);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.metric-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.metric-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+}
+
+// Progress Bar
+.progress-bar-container {
+  width: 100%;
+
+  mat-progress-bar {
+    height: 8px;
+    border-radius: 4px;
+  }
+}
+
+// Footer Row
+.card-footer-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+
+  .status-icon {
+    font-size: 1.125rem;
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+
+  &.funded {
+    color: var(--worth-it-positive, #1b6b3a);
+    font-weight: 600;
+  }
+
+  &.warning {
+    color: var(--mat-sys-error);
+    font-style: italic;
+  }
+}
+
+// Projected completion styling (spec requirement)
+.projected {
+  font-style: italic;
+  color: var(--mat-sys-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+
+  .projected-icon {
+    font-size: 1.125rem;
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+
+  .projected-label {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+  }
+
+  .projected-duration {
+    font-weight: 500;
+  }
+
+  .projected-date {
+    opacity: 0.85;
+  }
+}
+
+// All completed placeholder
+.all-completed-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background-color: var(--mat-sys-surface-container-low);
+  border: 1px dashed var(--mat-sys-outline-variant);
+  border-radius: 12px;
+  padding: 1.5rem;
+
+  .all-completed-icon {
+    font-size: 2.25rem;
+    width: 2.25rem;
+    height: 2.25rem;
+    color: var(--worth-it-positive, #1b6b3a);
+  }
+
+  .all-completed-text {
+    h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--mat-sys-on-surface);
+    }
+
+    p {
+      margin: 0.25rem 0 0;
+      font-size: 0.875rem;
+      color: var(--mat-sys-on-surface-variant);
+    }
+  }
+}
+
+// Empty state wrapper
+.empty-state-wrapper {
+  padding: 2rem 0;
+}

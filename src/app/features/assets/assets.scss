@@ -1,0 +1,477 @@
+.assets-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 1.5rem 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Header */
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  @media (min-width: 600px) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .header-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .page-title {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--mat-sys-on-surface);
+  }
+
+  .page-subtitle {
+    margin: 0;
+    font-size: 0.9375rem;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+/* Summary metrics grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+/* Pending adjustments banner */
+.pending-adjustments-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--mat-sys-surface-container-high);
+  border: 1px solid var(--mat-sys-outline-variant, rgba(0, 0, 0, 0.12));
+
+  @media (min-width: 720px) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .banner-body {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .banner-icon {
+    color: var(--mat-sys-primary);
+    font-size: 1.5rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .banner-copy {
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--mat-sys-on-surface);
+
+    strong {
+      color: var(--mat-sys-primary);
+    }
+  }
+
+  .adj-pill {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.875rem;
+
+    &.positive {
+      color: var(--worth-it-positive, #1b6b3a);
+      background: var(--mat-sys-surface-container-highest);
+    }
+
+    &.negative {
+      color: var(--mat-sys-error);
+      background: var(--mat-sys-surface-container-highest);
+    }
+  }
+
+  .banner-action-btn {
+    flex-shrink: 0;
+    align-self: flex-start;
+
+    @media (min-width: 720px) {
+      align-self: center;
+    }
+  }
+}
+
+/* Asset Allocation Breakdown Card */
+.breakdown-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: var(--mat-sys-surface-container);
+  border: 1px solid var(--mat-sys-outline-variant, rgba(0, 0, 0, 0.08));
+
+  .breakdown-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .breakdown-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--mat-sys-on-surface);
+  }
+
+  .breakdown-total {
+    font-size: 0.875rem;
+    color: var(--mat-sys-on-surface-variant);
+
+    strong {
+      color: var(--mat-sys-on-surface);
+    }
+  }
+
+  .breakdown-bar {
+    height: 10px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--mat-sys-surface-container-highest);
+    display: flex;
+    width: 100%;
+  }
+
+  .breakdown-bar-segment {
+    height: 100%;
+    transition: width 0.3s ease;
+
+    &.segment-bank_account {
+      background: #1976d2;
+    }
+    &.segment-cash {
+      background: #2e7d32;
+    }
+    &.segment-stocks_etf {
+      background: #7b1fa2;
+    }
+    &.segment-employer_stock {
+      background: #e65100;
+    }
+    &.segment-retirement {
+      background: #00838f;
+    }
+    &.segment-other {
+      background: #616161;
+    }
+  }
+
+  .breakdown-chips-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .breakdown-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--mat-sys-surface-container-high);
+    border: 1px solid transparent;
+    color: var(--mat-sys-on-surface);
+    font-size: 0.8125rem;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+
+    &:hover {
+      background: var(--mat-sys-surface-container-highest);
+      border-color: var(--mat-sys-outline-variant);
+    }
+
+    &.active {
+      background: var(--mat-sys-primary-container, #d0e4ff);
+      color: var(--mat-sys-on-primary-container, #001d36);
+      border-color: var(--mat-sys-primary);
+      font-weight: 600;
+    }
+
+    .chip-icon {
+      font-size: 1rem;
+      width: 1rem;
+      height: 1rem;
+      opacity: 0.85;
+    }
+
+    .chip-amount {
+      font-weight: 600;
+    }
+
+    .chip-pct {
+      opacity: 0.7;
+      font-size: 0.75rem;
+    }
+  }
+}
+
+/* Filter bar */
+.filter-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  .filter-pills {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--mat-sys-surface-container);
+    padding: 4px;
+    border-radius: 999px;
+    border: 1px solid var(--mat-sys-outline-variant, rgba(0, 0, 0, 0.08));
+  }
+
+  .filter-pill {
+    border: none;
+    background: transparent;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--mat-sys-on-surface-variant);
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+
+    &:hover {
+      color: var(--mat-sys-on-surface);
+    }
+
+    &.active {
+      background: var(--mat-sys-surface);
+      color: var(--mat-sys-on-surface);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+      font-weight: 600;
+    }
+  }
+
+  .clear-type-filter-btn {
+    font-size: 0.8125rem;
+    color: var(--mat-sys-primary);
+  }
+}
+
+/* Asset Cards Grid */
+.assets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.asset-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  background: var(--mat-sys-surface);
+  border: 1px solid var(--mat-sys-outline-variant, rgba(0, 0, 0, 0.1));
+  box-sizing: border-box;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  &.excluded-asset {
+    opacity: 0.88;
+    background: var(--mat-sys-surface-container-low);
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 16px 16px 8px;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .type-badge {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--mat-sys-surface-container-high);
+    color: var(--mat-sys-primary);
+
+    &.type-bank_account {
+      background: rgba(25, 118, 210, 0.12);
+      color: #1976d2;
+    }
+    &.type-cash {
+      background: rgba(46, 125, 50, 0.12);
+      color: #2e7d32;
+    }
+    &.type-stocks_etf {
+      background: rgba(123, 31, 162, 0.12);
+      color: #7b1fa2;
+    }
+    &.type-employer_stock {
+      background: rgba(230, 81, 0, 0.12);
+      color: #e65100;
+    }
+    &.type-retirement {
+      background: rgba(0, 131, 143, 0.12);
+      color: #00838f;
+    }
+    &.type-other {
+      background: rgba(97, 97, 97, 0.12);
+      color: #616161;
+    }
+  }
+
+  .name-block {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .asset-name {
+    margin: 0;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: var(--mat-sys-on-surface);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .type-name {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--mat-sys-on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 8px 16px 12px;
+    flex: 1;
+  }
+
+  .balance-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 4px;
+  }
+
+  .primary-balance {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--mat-sys-on-surface);
+    line-height: 1.2;
+  }
+
+  .exchange-equivalent {
+    font-size: 0.875rem;
+    color: var(--mat-sys-on-surface-variant);
+    font-weight: 500;
+
+    .rate-note {
+      font-size: 0.75rem;
+      opacity: 0.8;
+    }
+  }
+
+  .card-meta-row {
+    font-size: 0.75rem;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  .eligibility-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--mat-sys-surface-container);
+    margin-top: 4px;
+
+    .toggle-label {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--mat-sys-on-surface);
+    }
+
+    .toggle-status {
+      font-size: 0.75rem;
+      color: var(--mat-sys-on-surface-variant);
+
+      &.active {
+        color: var(--worth-it-positive, #1b6b3a);
+        font-weight: 500;
+      }
+    }
+  }
+
+  .card-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--mat-sys-outline-variant, rgba(0, 0, 0, 0.06));
+
+    .action-update-btn {
+      flex: 1;
+    }
+  }
+}
+
+.danger-action {
+  color: var(--mat-sys-error) !important;
+}
+
+.no-filter-results {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--mat-sys-on-surface-variant);
+}

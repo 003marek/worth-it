@@ -1,0 +1,415 @@
+<div class="goals-page">
+  <!-- Top Header Strip -->
+  <header class="page-header">
+    <div class="header-titles">
+      <h1 class="page-title">Goals</h1>
+      <p class="page-subtitle">
+        Plan, order, and track your financial milestones sequentially.
+      </p>
+    </div>
+    <div class="header-actions">
+      <button
+        mat-flat-button
+        color="primary"
+        class="add-goal-btn"
+        (click)="openAddGoalDialog()"
+      >
+        <mat-icon>add</mat-icon>
+        Add goal
+      </button>
+    </div>
+  </header>
+
+  <!-- Summary Tiles Strip -->
+  <section class="summary-strip" aria-label="Goals Summary Metrics">
+    <div class="summary-tile">
+      <app-metric-tile
+        label="Available for goals"
+        [value]="wealthSummary().availableForGoals"
+        hint="Eligible wealth minus cushion & reserves"
+        icon="savings"
+        tone="positive"
+      />
+    </div>
+
+    <div class="summary-tile">
+      <app-metric-tile
+        label="Financial cushion"
+        [value]="cushionStatus().funded"
+        [hint]="cushionHint()"
+        icon="shield"
+        [tone]="cushionTone()"
+      />
+    </div>
+
+    <div class="summary-tile">
+      <app-metric-tile
+        label="Reserved for goals"
+        [value]="wealthSummary().reservedAmounts"
+        hint="Earmarked for completed goals"
+        icon="bookmark"
+        tone="default"
+      />
+    </div>
+  </section>
+
+  <!-- Financial Cushion Priority Warning Banner -->
+  @if (cushionStatus().deficit > 0) {
+    <div class="warning-banner" role="alert">
+      <mat-icon class="banner-icon">priority_high</mat-icon>
+      <div class="banner-content">
+        <strong>Financial Cushion Deficit: {{ cushionStatus().deficit | money }}</strong>
+        <p>
+          By accounting priority, the cushion takes priority before funding goals. New savings will fund the cushion first.
+        </p>
+      </div>
+    </div>
+  }
+
+  <!-- Empty State when no goals exist at all -->
+  @if (!hasGoals()) {
+    <div class="empty-state-wrapper">
+      <app-empty-state
+        icon="flag"
+        title="No goals yet"
+        message="Define your financial targets to start tracking your progress towards them."
+      >
+        <button mat-flat-button color="primary" (click)="openAddGoalDialog()">
+          <mat-icon>add</mat-icon>
+          Add your first goal
+        </button>
+      </app-empty-state>
+    </div>
+  } @else {
+    <!-- Section 1: Funding Sequence (Uncompleted, Non-Skipped Goals) -->
+    <section class="goals-section sequence-section" aria-label="Funding Sequence">
+      <div class="section-header">
+        <div class="section-title-group">
+          <h2 class="section-title">Funding Sequence</h2>
+          <p class="section-subtitle">
+            Goals are funded sequentially in order of priority. Reordering goals never changes actual wealth or reserved amounts.
+          </p>
+        </div>
+      </div>
+
+      @if (uncompletedGoals().length === 0) {
+        <div class="all-completed-card">
+          <mat-icon class="all-completed-icon">check_circle_outline</mat-icon>
+          <div class="all-completed-text">
+            <h3>No active goals in sequence</h3>
+            <p>All your goals are currently completed or skipped.</p>
+          </div>
+        </div>
+      } @else {
+        <div
+          cdkDropList
+          (cdkDropListDropped)="onDrop($event)"
+          class="goals-drop-list"
+          aria-label="Reorderable goals list"
+        >
+          @for (
+            item of uncompletedGoals();
+            track item.goal.id;
+            let i = $index, first = $first, last = $last
+          ) {
+            <div cdkDrag class="goal-item-wrapper">
+              <mat-card class="goal-card" [class.active-card]="first">
+                <mat-card-content class="goal-card-content">
+                  <!-- Top Row: Badge, Drag Handle, Name, and Actions -->
+                  <div class="card-header-row">
+                    <div class="header-left">
+                      <mat-icon
+                        cdkDragHandle
+                        class="drag-handle"
+                        matTooltip="Drag to reorder"
+                        aria-label="Drag to reorder"
+                      >
+                        drag_indicator
+                      </mat-icon>
+
+                      @if (first) {
+                        <span class="badge active-badge">
+                          <mat-icon class="badge-icon">star</mat-icon>
+                          Active Goal
+                        </span>
+                      } @else {
+                        <span class="badge upcoming-badge">
+                          Upcoming #{{ i + 1 }}
+                        </span>
+                      }
+
+                      <h3 class="goal-name">{{ item.goal.name }}</h3>
+                    </div>
+
+                    <div class="header-actions">
+                      <!-- Reorder Buttons -->
+                      <button
+                        mat-icon-button
+                        type="button"
+                        [disabled]="first"
+                        (click)="moveGoalUp(i)"
+                        matTooltip="Move goal up"
+                        aria-label="Move goal up"
+                      >
+                        <mat-icon>arrow_upward</mat-icon>
+                      </button>
+                      <button
+                        mat-icon-button
+                        type="button"
+                        [disabled]="last"
+                        (click)="moveGoalDown(i)"
+                        matTooltip="Move goal down"
+                        aria-label="Move goal down"
+                      >
+                        <mat-icon>arrow_downward</mat-icon>
+                      </button>
+
+                      <!-- Goal Actions -->
+                      <button
+                        mat-stroked-button
+                        color="primary"
+                        class="complete-btn"
+                        type="button"
+                        (click)="openCompleteDialog(item.goal)"
+                      >
+                        <mat-icon>check_circle</mat-icon>
+                        Complete
+                      </button>
+
+                      <button
+                        mat-button
+                        type="button"
+                        (click)="skipGoal(item.goal.id)"
+                        matTooltip="Skip goal for now"
+                      >
+                        <mat-icon>redo</mat-icon>
+                        Skip
+                      </button>
+
+                      <button
+                        mat-icon-button
+                        type="button"
+                        (click)="openEditDialog(item.goal)"
+                        matTooltip="Edit goal"
+                        aria-label="Edit goal"
+                      >
+                        <mat-icon>edit</mat-icon>
+                      </button>
+
+                      <button
+                        mat-icon-button
+                        type="button"
+                        color="warn"
+                        (click)="openDeleteDialog(item.goal)"
+                        matTooltip="Delete goal"
+                        aria-label="Delete goal"
+                      >
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Financial Metrics Grid -->
+                  <div class="metrics-grid">
+                    <div class="metric-item">
+                      <span class="metric-label">Target</span>
+                      <span class="metric-value">{{ item.goal.targetAmount | money }}</span>
+                    </div>
+                    <div class="metric-item">
+                      <span class="metric-label">Current progress</span>
+                      <span class="metric-value">{{ item.currentProgress | money }}</span>
+                    </div>
+                    <div class="metric-item">
+                      <span class="metric-label">Remaining</span>
+                      <span class="metric-value">{{ item.remainingAmount | money }}</span>
+                    </div>
+                    <div class="metric-item">
+                      <span class="metric-label">Funded</span>
+                      <span class="metric-value">{{ item.progressPercent }}%</span>
+                    </div>
+                  </div>
+
+                  <!-- Progress Bar -->
+                  <div class="progress-bar-container">
+                    <mat-progress-bar
+                      mode="determinate"
+                      [value]="item.progressPercent"
+                      [color]="item.isFullyFunded ? 'accent' : 'primary'"
+                    />
+                  </div>
+
+                  <!-- Projection Footer -->
+                  <div class="card-footer-row">
+                    @if (item.isFullyFunded) {
+                      <div class="status-indicator funded">
+                        <mat-icon class="status-icon">check_circle</mat-icon>
+                        <span>Fully funded! Ready to complete.</span>
+                      </div>
+                    } @else if (monthlySurplusSummary().monthlySurplus <= 0) {
+                      <div class="status-indicator warning">
+                        <mat-icon class="status-icon">info</mat-icon>
+                        <span>Needs positive monthly surplus</span>
+                      </div>
+                    } @else {
+                      <div class="projected-info projected">
+                        <mat-icon class="projected-icon">schedule</mat-icon>
+                        <span class="projected-label">Projected:</span>
+                        <span class="projected-duration">
+                          {{ item.estimatedCompletionMonths | months }}
+                        </span>
+                        @if (item.estimatedCompletionDate) {
+                          <span class="projected-date">
+                            ({{ item.estimatedCompletionDate | date: 'MMM yyyy' }})
+                          </span>
+                        }
+                      </div>
+                    }
+                  </div>
+                </mat-card-content>
+              </mat-card>
+            </div>
+          }
+        </div>
+      }
+    </section>
+
+    <!-- Section 2: Skipped Goals (when > 0) -->
+    @if (store.skippedGoals().length > 0) {
+      <section class="goals-section skipped-section" aria-label="Skipped Goals">
+        <div class="section-header">
+          <div class="section-title-group">
+            <h2 class="section-title">
+              Skipped Goals ({{ store.skippedGoals().length }})
+            </h2>
+            <p class="section-subtitle">
+              Skipped goals stay in your list but are excluded from the funding sequence.
+            </p>
+          </div>
+        </div>
+
+        <div class="goals-list">
+          @for (goal of store.skippedGoals(); track goal.id) {
+            <mat-card class="goal-card skipped-card">
+              <mat-card-content class="goal-card-content">
+                <div class="card-header-row">
+                  <div class="header-left">
+                    <span class="badge skipped-badge">Skipped</span>
+                    <h3 class="goal-name">{{ goal.name }}</h3>
+                    <span class="amount-tag">
+                      Target: {{ goal.targetAmount | money }}
+                    </span>
+                  </div>
+
+                  <div class="header-actions">
+                    <button
+                      mat-stroked-button
+                      color="primary"
+                      type="button"
+                      (click)="unskipGoal(goal.id)"
+                    >
+                      <mat-icon>play_arrow</mat-icon>
+                      Resume
+                    </button>
+                    <button
+                      mat-icon-button
+                      type="button"
+                      (click)="openEditDialog(goal)"
+                      matTooltip="Edit goal"
+                      aria-label="Edit goal"
+                    >
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    <button
+                      mat-icon-button
+                      type="button"
+                      color="warn"
+                      (click)="openDeleteDialog(goal)"
+                      matTooltip="Delete goal"
+                      aria-label="Delete goal"
+                    >
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          }
+        </div>
+      </section>
+    }
+
+    <!-- Section 3: Completed Goals (when > 0) -->
+    @if (store.completedGoals().length > 0) {
+      <section class="goals-section completed-section" aria-label="Completed Goals">
+        <div class="section-header">
+          <div class="section-title-group">
+            <h2 class="section-title">
+              Completed Goals ({{ store.completedGoals().length }})
+            </h2>
+            <p class="section-subtitle">
+              Goals you have reached. You can adjust fund allocation or reopen them.
+            </p>
+          </div>
+        </div>
+
+        <div class="goals-list">
+          @for (goal of store.completedGoals(); track goal.id) {
+            <mat-card class="goal-card completed-card">
+              <mat-card-content class="goal-card-content">
+                <div class="card-header-row">
+                  <div class="header-left">
+                    @if (goal.completionChoice === 'spend') {
+                      <span class="badge spend-badge">
+                        Spent: {{ (goal.spentAmount ?? goal.targetAmount) | money }}
+                      </span>
+                    } @else if (goal.completionChoice === 'reserve') {
+                      <span class="badge reserve-badge">
+                        Reserved: {{ (goal.reservedAmount ?? goal.targetAmount) | money }}
+                      </span>
+                    } @else {
+                      <span class="badge release-badge">Released</span>
+                    }
+
+                    <h3 class="goal-name">{{ goal.name }}</h3>
+                    <span class="amount-tag">
+                      Target: {{ goal.targetAmount | money }}
+                    </span>
+                  </div>
+
+                  <div class="header-actions">
+                    <button
+                      mat-stroked-button
+                      type="button"
+                      (click)="openChangeAllocationDialog(goal)"
+                    >
+                      <mat-icon>tune</mat-icon>
+                      Change allocation
+                    </button>
+                    <button
+                      mat-button
+                      type="button"
+                      (click)="reopenGoal(goal.id)"
+                    >
+                      <mat-icon>undo</mat-icon>
+                      Reopen goal
+                    </button>
+                    <button
+                      mat-icon-button
+                      type="button"
+                      color="warn"
+                      (click)="openDeleteDialog(goal)"
+                      matTooltip="Delete goal"
+                      aria-label="Delete goal"
+                    >
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          }
+        </div>
+      </section>
+    }
+  }
+</div>

@@ -1,0 +1,493 @@
+<div class="page projections-container">
+  <!-- Header -->
+  <header class="projections-header">
+    <h1>Projections & Milestones</h1>
+    <p class="header-subtitle">
+      Forward-looking timeline of your financial cushion and goal funding waterfall
+    </p>
+  </header>
+
+  <!-- Side-by-side Actual vs Projected comparison header (spec §8.2) -->
+  <section class="actual-vs-projected-header">
+    <!-- Left: Actual Reality -->
+    <div class="comparison-card actual-card">
+      <div class="card-top">
+        <h3>
+          <mat-icon>check_circle</mat-icon>
+          Actual Reality (Today)
+        </h3>
+        <span class="card-tag">Confirmed Balances</span>
+      </div>
+
+      <div class="metrics-row">
+        <div class="metric-box">
+          <span class="m-label">Recorded Assets</span>
+          <span class="m-val">{{ wealthSummary().recordedAssetsTotal | money:currency() }}</span>
+        </div>
+        <div class="metric-box">
+          <span class="m-label">Goal-Eligible Wealth</span>
+          <span class="m-val">{{ wealthSummary().goalEligibleWealth | money:currency() }}</span>
+        </div>
+        <div class="metric-box">
+          <span class="m-label">Cushion Funded Today</span>
+          <span class="m-val">{{ cushionStatus().funded | money:currency() }}</span>
+        </div>
+        <div class="metric-box">
+          <span class="m-label">Available for Goals</span>
+          <span class="m-val" style="color: var(--worth-it-positive, #1b6b3a);">
+            {{ wealthSummary().availableForGoals | money:currency() }}
+          </span>
+        </div>
+      </div>
+
+      <p class="disclaimer-note">
+        Real balances reflect verified assets and pending adjustments recorded in your accounts.
+      </p>
+    </div>
+
+    <!-- Right: Projected Horizon -->
+    <div class="comparison-card projected-card projected">
+      <div class="card-top">
+        <h3>
+          <mat-icon>trending_up</mat-icon>
+          Projected Horizon (Future)
+        </h3>
+        <span class="card-tag">Forward Model</span>
+      </div>
+
+      <div class="metrics-row">
+        <div class="metric-box">
+          <span class="m-label">Expected Monthly Surplus</span>
+          <span class="m-val">
+            {{ monthlySurplus() | money:currency() }}/mo
+          </span>
+        </div>
+        <div class="metric-box">
+          <span class="m-label">Cushion Replenishment</span>
+          <span class="m-val">
+            @if (!cushionStatus().isEnabled) {
+              Disabled
+            } @else if (cushionStatus().isFullyFunded) {
+              Fully Funded
+            } @else if (cushionStatus().estimatedCompletionDate) {
+              {{ cushionStatus().estimatedCompletionDate | date:'MMM yyyy' }}
+            } @else {
+              Surplus needed
+            }
+          </span>
+        </div>
+        <div class="metric-box">
+          <span class="m-label">Active Goal Target Date</span>
+          <span class="m-val">
+            @if (activeGoalFunding(); as ag) {
+              @if (ag.isFullyFunded) {
+                Fully Funded
+              } @else if (ag.estimatedCompletionDate) {
+                {{ ag.estimatedCompletionDate | date:'MMM yyyy' }}
+              } @else {
+                Pending surplus
+              }
+            } @else {
+              No active goal
+            }
+          </span>
+        </div>
+        <div class="metric-box">
+          <span class="m-label">Active Goal Timeline</span>
+          <span class="m-val">
+            @if (activeGoalFunding(); as ag) {
+              @if (ag.isFullyFunded) {
+                Now (0 mo)
+              } @else {
+                {{ ag.estimatedCompletionMonths | months }}
+              }
+            } @else {
+              —
+            }
+          </span>
+        </div>
+      </div>
+
+      <p class="disclaimer-note">
+        Estimates assume recurring surplus and zero unforeseen life shocks. Projections are never guaranteed balances.
+      </p>
+    </div>
+  </section>
+
+  <!-- Assumptions & What-If Simulator Card (built with Angular Signal Forms) -->
+  <mat-card class="simulator-card">
+    <mat-card-content>
+      <div class="sim-card-header">
+        <div class="sim-title-group">
+          <mat-icon>science</mat-icon>
+          <h3>Assumptions & What-If Simulator</h3>
+        </div>
+        <span
+          class="sim-status-chip"
+          [class.active]="isSimulationActive()"
+          [class.idle]="!isSimulationActive()"
+        >
+          {{ isSimulationActive() ? 'Simulation Active' : 'Baseline Active' }}
+        </span>
+      </div>
+
+      <!-- Current Assumptions Overview -->
+      <div class="assumptions-overview">
+        <div class="assumption-item">
+          <span class="a-label">Goal-Eligible Wealth</span>
+          <span class="a-val">{{ wealthSummary().goalEligibleWealth | money:currency() }}</span>
+        </div>
+        <div class="assumption-item">
+          <span class="a-label">Cushion Target</span>
+          <span class="a-val">{{ wealthSummary().cushionTarget | money:currency() }}</span>
+        </div>
+        <div class="assumption-item">
+          <span class="a-label">Cushion Deficit</span>
+          <span class="a-val" [class.negative]="wealthSummary().cushionDeficit > 0">
+            {{ wealthSummary().cushionDeficit | money:currency() }}
+          </span>
+        </div>
+        <div class="assumption-item">
+          <span class="a-label">Completed Reserves</span>
+          <span class="a-val">{{ wealthSummary().reservedAmounts | money:currency() }}</span>
+        </div>
+        <div class="assumption-item">
+          <span class="a-label">Expected Income</span>
+          <span class="a-val">{{ monthlySurplusSummary().monthlyIncome | money:currency() }}</span>
+        </div>
+        <div class="assumption-item">
+          <span class="a-label">Expected Expenses</span>
+          <span class="a-val">{{ monthlySurplusSummary().monthlyExpenses | money:currency() }}</span>
+        </div>
+        <div class="assumption-item">
+          <span class="a-label">Baseline Surplus</span>
+          <span
+            class="a-val"
+            [class.positive]="monthlySurplus() > 0"
+            [class.negative]="monthlySurplus() < 0"
+          >
+            {{ monthlySurplus() | money:currency() }}/mo
+          </span>
+        </div>
+      </div>
+
+      <!-- Interactive Signal Form for What-If Testing -->
+      <form [formRoot]="simForm">
+        <div class="simulation-form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Extra monthly savings</mat-label>
+            <input
+              matInput
+              type="number"
+              [formField]="simForm.extraMonthlySavings"
+              placeholder="e.g. 500"
+            />
+            <span matTextSuffix>{{ currency() }}/mo</span>
+            <mat-hint>Boosts expected monthly surplus</mat-hint>
+          </mat-form-field>
+          <app-field-errors [field]="simForm.extraMonthlySavings" />
+
+          <mat-form-field appearance="outline">
+            <mat-label>One-time windfall</mat-label>
+            <input
+              matInput
+              type="number"
+              [formField]="simForm.oneTimeWindfall"
+              placeholder="e.g. 25000"
+            />
+            <span matTextSuffix>{{ currency() }}</span>
+            <mat-hint>Lump sum (covers cushion deficit first)</mat-hint>
+          </mat-form-field>
+          <app-field-errors [field]="simForm.oneTimeWindfall" />
+
+          <div class="form-actions">
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="resetSimulation()"
+              [disabled]="!isSimulationActive()"
+            >
+              <mat-icon>restart_alt</mat-icon>
+              Reset Simulation
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <!-- Simulation Impact Notification -->
+      @if (isSimulationActive()) {
+        <div class="simulation-impact-banner">
+          <mat-icon>bolt</mat-icon>
+          <div class="impact-text">
+            <strong>What-If Scenario:</strong>
+            Simulating +{{ simModel().extraMonthlySavings | money:currency() }}/mo surplus
+            and +{{ simModel().oneTimeWindfall | money:currency() }} windfall.
+            @if (activeGoalFunding(); as ag) {
+              @if (simulatedActiveGoalFunding(); as simAg) {
+                @if (ag.estimatedCompletionMonths !== null && simAg.estimatedCompletionMonths !== null && ag.estimatedCompletionMonths > simAg.estimatedCompletionMonths) {
+                  <span>
+                    Focus goal (<strong>{{ ag.goal.name }}</strong>) finishes
+                    <strong>{{ (ag.estimatedCompletionMonths - simAg.estimatedCompletionMonths) | number:'1.1-1' }} months sooner</strong>
+                    ({{ simAg.estimatedCompletionDate | date:'MMMM yyyy' }}).
+                  </span>
+                }
+              }
+            }
+          </div>
+        </div>
+      }
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Full Funding Waterfall & Timeline -->
+  <mat-card class="waterfall-card">
+    <mat-card-content>
+      <div class="wf-header">
+        <div>
+          <h3>Full Funding Waterfall</h3>
+          <span class="waterfall-sub">
+            Funds cascade sequentially: Cushion Priority &rarr; Focus Goal &rarr; Upcoming Queue
+          </span>
+        </div>
+      </div>
+
+      <div class="waterfall-steps">
+        <!-- Step 1: Financial Cushion (if enabled) -->
+        <div class="wf-step cushion-step">
+          <div class="step-top">
+            <div class="step-badge-group">
+              <span class="step-num">1</span>
+              <span class="step-title">Protected Financial Cushion</span>
+            </div>
+            <div class="step-status">
+              @if (!cushionStatus().isEnabled) {
+                <span class="funded-badge" style="background-color: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface-variant);">
+                  Disabled
+                </span>
+              } @else if (cushionStatus().isFullyFunded) {
+                <span class="funded-badge">100% Fully Funded</span>
+              } @else {
+                <span class="target-text">
+                  Target: {{ cushionStatus().target | money:currency() }}
+                </span>
+              }
+            </div>
+          </div>
+
+          @if (cushionStatus().isEnabled) {
+            <div class="step-progress-row">
+              <mat-progress-bar
+                mode="determinate"
+                [value]="cushionStatus().percent"
+                color="primary"
+              ></mat-progress-bar>
+            </div>
+
+            <div class="step-bottom-details">
+              <span class="cum-req">
+                Funded: {{ cushionStatus().funded | money:currency() }} / Deficit: {{ cushionStatus().deficit | money:currency() }}
+              </span>
+
+              <div class="timeline-comparison">
+                <span class="baseline-date">
+                  @if (cushionStatus().isFullyFunded) {
+                    Replenished
+                  } @else if (cushionStatus().estimatedCompletionDate) {
+                    Baseline: {{ cushionStatus().estimatedCompletionDate | date:'MMM yyyy' }} ({{ cushionStatus().estimatedCompletionMonths | months }})
+                  } @else {
+                    Surplus needed
+                  }
+                </span>
+
+                @if (isSimulationActive() && !cushionStatus().isFullyFunded) {
+                  <span class="simulated-date">
+                    Simulated: {{ simulatedCushionDate() | date:'MMM yyyy' }} ({{ simulatedCushionMonths() | months }})
+                  </span>
+                }
+              </div>
+            </div>
+          } @else {
+            <p style="margin: 0; font-size: 0.8125rem; color: var(--mat-sys-on-surface-variant);">
+              Cushion is disabled in settings. Savings cascade immediately to your active goal.
+            </p>
+          }
+        </div>
+
+        <!-- Step 2: Active Goal -->
+        @if (activeGoalFunding(); as ag) {
+          <div class="wf-step active-step">
+            <div class="step-top">
+              <div class="step-badge-group">
+                <span class="step-num">2</span>
+                <span class="step-title">Active Goal: {{ ag.goal.name }}</span>
+              </div>
+              <div class="step-status">
+                @if (ag.isFullyFunded) {
+                  <span class="funded-badge">100% Fully Funded</span>
+                } @else {
+                  <span class="target-text">
+                    Target: {{ ag.goal.targetAmount | money:currency() }}
+                  </span>
+                }
+              </div>
+            </div>
+
+            <div class="step-progress-row">
+              <mat-progress-bar
+                mode="determinate"
+                [value]="ag.progressPercent"
+                color="primary"
+              ></mat-progress-bar>
+            </div>
+
+            <div class="step-bottom-details">
+              <span class="cum-req">
+                Funded: {{ ag.currentProgress | money:currency() }} ({{ ag.progressPercent | number:'1.0-0' }}%) &bull;
+                Remaining: {{ ag.remainingAmount | money:currency() }}
+              </span>
+
+              <div class="timeline-comparison">
+                <span class="baseline-date">
+                  @if (ag.isFullyFunded) {
+                    Ready to complete!
+                  } @else if (ag.estimatedCompletionDate) {
+                    Baseline: {{ ag.estimatedCompletionDate | date:'MMMM yyyy' }} ({{ ag.estimatedCompletionMonths | months }})
+                  } @else {
+                    Pending surplus
+                  }
+                </span>
+
+                @if (isSimulationActive() && simulatedActiveGoalFunding(); as simAg) {
+                  @if (simAg.estimatedCompletionDate) {
+                    <span class="simulated-date">
+                      Simulated: {{ simAg.estimatedCompletionDate | date:'MMMM yyyy' }} ({{ simAg.estimatedCompletionMonths | months }})
+                    </span>
+                  }
+                }
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Step 3+: Every Upcoming Goal in Priority Order -->
+        @for (item of upcomingWaterfallItems(); track item.goal.id; let idx = $index) {
+          <div class="wf-step upcoming-step">
+            <div class="step-top">
+              <div class="step-badge-group">
+                <span class="step-num">{{ idx + 3 }}</span>
+                <span class="step-title">{{ item.goal.name }}</span>
+              </div>
+              <div class="step-status">
+                @if (item.isFullyFunded) {
+                  <span class="funded-badge">Fully Funded</span>
+                } @else {
+                  <span class="target-text">
+                    Target: {{ item.goal.targetAmount | money:currency() }}
+                  </span>
+                }
+              </div>
+            </div>
+
+            <div class="step-progress-row">
+              <mat-progress-bar
+                mode="determinate"
+                [value]="item.progressPercent"
+              ></mat-progress-bar>
+            </div>
+
+            <div class="step-bottom-details">
+              <span class="cum-req">
+                Cumulative required: {{ item.cumulativeFundingRequired | money:currency() }} &bull;
+                Cascaded: {{ item.currentProgress | money:currency() }}
+              </span>
+
+              <div class="timeline-comparison">
+                <span class="baseline-date">
+                  @if (item.isFullyFunded) {
+                    Fully Funded
+                  } @else if (item.estimatedCompletionDate) {
+                    Baseline: {{ item.estimatedCompletionDate | date:'MMM yyyy' }} ({{ item.estimatedCompletionMonths | months }})
+                  } @else {
+                    Pending prior goals
+                  }
+                </span>
+
+                @if (isSimulationActive() && item.simulatedTimeline; as sim) {
+                  @if (sim.estimatedCompletionDate) {
+                    <span class="simulated-date">
+                      Simulated: {{ sim.estimatedCompletionDate | date:'MMM yyyy' }} ({{ sim.estimatedCompletionMonths | months }})
+                    </span>
+                  }
+                }
+              </div>
+            </div>
+          </div>
+        }
+
+        @if (!activeGoalFunding() && upcomingWaterfallItems().length === 0) {
+          <app-empty-state
+            icon="flag"
+            title="No goals in funding waterfall"
+            message="Add goals in Goals to construct your sequential timeline."
+          >
+            <a mat-stroked-button color="primary" routerLink="/goals">Create Goal</a>
+          </app-empty-state>
+        }
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Multi-year projection table / milestone schedule (6 mo, 1 yr, 2 yr, 3 yr, 5 yr) -->
+  <mat-card class="milestones-card">
+    <mat-card-content>
+      <div class="milestones-header">
+        <div>
+          <h3>Milestone Schedule (Multi-Year Horizon)</h3>
+          <span class="formula-note">
+            Projected Available Goal Wealth = Available Now + (Monthly Surplus &times; Months) &minus; Cushion Deficit
+          </span>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="milestones-table">
+          <thead>
+            <tr>
+              <th>Horizon</th>
+              <th>Projected Available Goal Wealth</th>
+              @if (isSimulationActive()) {
+                <th style="color: var(--mat-sys-tertiary);">Simulated Available Goal Wealth</th>
+              }
+              <th>Projected Goals Achieved</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (m of milestoneSchedule(); track m.months) {
+              <tr>
+                <td class="milestone-horizon">{{ m.label }}</td>
+                <td class="wealth-val">{{ m.baselineAvailableWealth | money:currency() }}</td>
+                @if (isSimulationActive()) {
+                  <td class="wealth-val" style="color: var(--mat-sys-tertiary);">
+                    {{ m.simulatedAvailableWealth | money:currency() }}
+                  </td>
+                }
+                <td class="goals-achieved-cell">
+                  <div class="goals-chips">
+                    @for (g of (isSimulationActive() ? m.simulatedCompletedGoals : m.baselineCompletedGoals); track g.id) {
+                      <span class="goal-chip">
+                        <mat-icon>check</mat-icon> {{ g.name }}
+                      </span>
+                    }
+                    @if ((isSimulationActive() ? m.simulatedCompletedGoals : m.baselineCompletedGoals).length === 0) {
+                      <span class="none-chip">In progress</span>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>
