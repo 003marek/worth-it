@@ -1,12 +1,19 @@
 import { TestBed } from '@angular/core/testing';
+import { TitleStrategy, provideRouter } from '@angular/router';
+import { describe, expect, it } from 'vitest';
 import { App } from './app';
+import { PageTitleStrategy } from './core/strategies/page-title.strategy';
 
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
-    })
-      .compileComponents();
+      providers: [
+        provideRouter([]),
+        PageTitleStrategy,
+        { provide: TitleStrategy, useExisting: PageTitleStrategy },
+      ],
+    }).compileComponents();
   });
 
   it('should create the app', () => {
@@ -15,10 +22,11 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
-  it('should render title', async () => {
+  it('should render the brand title', async () => {
     const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, worth-it-app');
+    expect(compiled.querySelector('.app-title')?.textContent).toContain('Worth It');
   });
 });

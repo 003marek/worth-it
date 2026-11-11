@@ -1,1 +1,133 @@
-/* You can add global styles to this file, and also import other style files */
+// Include theming for Angular Material with `mat.theme()`.
+@use '@angular/material' as mat;
+
+html {
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$green-palette,
+        tertiary: mat.$cyan-palette,
+        theme-type: light,
+      ),
+      typography: Roboto,
+      density: 0,
+    )
+  );
+
+  @include mat.fab-overrides(
+    (
+      container-color: var(--mat-sys-primary),
+      foreground-color: var(--mat-sys-on-primary),
+    )
+  );
+}
+
+.dark-theme {
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$green-palette,
+        tertiary: mat.$cyan-palette,
+        theme-type: dark,
+      ),
+      typography: Roboto,
+      density: 0,
+    )
+  );
+
+  @include mat.fab-overrides(
+    (
+      container-color: var(--mat-sys-primary),
+      foreground-color: var(--mat-sys-on-primary),
+    )
+  );
+}
+
+:root {
+  --worth-it-positive: #1b6b3a;
+  --worth-it-negative: var(--mat-sys-error);
+}
+
+.dark-theme {
+  --worth-it-positive: #4ade80;
+}
+
+body {
+  color-scheme: light;
+
+  &.dark-theme {
+    color-scheme: dark;
+  }
+
+  background-color: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+  margin: 0;
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+// Global utilities
+.page {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 16px;
+  box-sizing: border-box;
+
+  @media (min-width: 768px) {
+    padding: 24px;
+  }
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+
+  .label,
+  .metric-label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--mat-sys-on-surface-variant);
+    letter-spacing: 0.04em;
+  }
+
+  .value,
+  .metric-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--mat-sys-on-surface);
+  }
+}
+
+.projected {
+  font-style: italic !important;
+  color: var(--mat-sys-tertiary) !important;
+}
+
+.positive {
+  color: var(--worth-it-positive, #1b6b3a) !important;
+}
+
+.negative {
+  color: var(--worth-it-negative, var(--mat-sys-error)) !important;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.blur-backdrop {
+  backdrop-filter: blur(8px);
+}

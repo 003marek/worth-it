@@ -1,0 +1,108 @@
+.sidenav-container {
+  height: 100%;
+}
+
+.sidenav {
+  width: 250px;
+  border-radius: 0 !important;
+  background-color: var(--mat-sys-surface);
+  border-right: 1px solid var(--mat-sys-outline-variant);
+
+  .sidenav-header {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+
+    .logo-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--mat-sys-on-surface);
+
+      .app-logo {
+        border-radius: 6px;
+      }
+    }
+  }
+
+  .nav-list-item {
+    border-radius: 0;
+    margin: 4px 8px;
+    border-radius: 8px;
+    transition: background-color 0.15s ease;
+
+    mat-icon {
+      color: var(--mat-sys-on-surface-variant);
+    }
+
+    &.active-link {
+      background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+      color: var(--mat-sys-primary);
+
+      mat-icon {
+        color: var(--mat-sys-primary);
+      }
+
+      span {
+        font-weight: 600;
+        color: var(--mat-sys-primary);
+      }
+    }
+  }
+}
+
+.top-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+
+  .page-title {
+    font-size: 1.125rem;
+    font-weight: 500;
+    margin-left: 8px;
+  }
+
+  .wealth-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--mat-sys-on-primary) 18%, transparent);
+    font-size: 0.875rem;
+    margin-right: 8px;
+
+    .wealth-label {
+      opacity: 0.8;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .wealth-amount {
+      font-weight: 600;
+    }
+
+    @media (max-width: 520px) {
+      display: none;
+    }
+  }
+}
+
+.main-content {
+  box-sizing: border-box;
+}
+
+.check-icon {
+  margin-left: auto;
+  color: var(--mat-sys-primary);
+  font-size: 1.125rem;
+  width: 1.125rem;
+  height: 1.125rem;
+}
