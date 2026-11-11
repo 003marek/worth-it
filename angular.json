@@ -6,7 +6,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "worth-it-app": {
+    "worth-it": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -51,10 +51,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "worth-it-app:build:production"
+              "buildTarget": "worth-it:build:production"
             },
             "development": {
-              "buildTarget": "worth-it-app:build:development"
+              "buildTarget": "worth-it:build:development"
             }
           },
           "defaultConfiguration": "development"
