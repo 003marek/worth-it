@@ -7,7 +7,7 @@
     [mode]="isHandset() ? 'over' : 'side'"
     [opened]="!isHandset()"
   >
-    <div class="sidenav-header">
+    <mat-toolbar class="sidenav-header">
       <div class="logo-title">
         <img src="favicon.svg" alt="Worth It" class="app-logo" width="28" height="28" />
         <span class="app-title">Worth It</span>
@@ -18,7 +18,7 @@
           <mat-icon>close</mat-icon>
         </button>
       }
-    </div>
+    </mat-toolbar>
 
     <mat-nav-list>
       @for (item of navItems; track item.path) {
@@ -51,12 +51,15 @@
       <span class="page-title">{{ pageTitle() }}</span>
       <span class="spacer"></span>
 
-      <div class="wealth-chip" aria-label="Total Wealth">
-        <span class="wealth-label">Wealth:</span>
-        <span class="wealth-amount">
-          {{ store.wealthSummary().totalWealth | money }}
-        </span>
-      </div>
+      <mat-chip-set aria-label="Total Wealth" class="wealth-chip-set">
+        <mat-chip class="wealth-chip" highlighted>
+          <mat-icon matChipAvatar>account_balance_wallet</mat-icon>
+          <span class="wealth-label">Wealth:</span>
+          <span class="wealth-amount">
+            {{ store.wealthSummary().totalWealth | money }}
+          </span>
+        </mat-chip>
+      </mat-chip-set>
 
       <button
         mat-icon-button

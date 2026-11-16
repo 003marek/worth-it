@@ -7,7 +7,6 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { IncomeFrequency, IncomeSource, IncomeType } from '../../core/models/worth-it.model';
-import { FieldErrors } from '../../shared/components/field-errors/field-errors';
 
 export interface IncomeSourceDialogData {
   source?: IncomeSource;
@@ -37,7 +36,6 @@ export interface IncomeSourceFormValue {
     MatButtonModule,
     FormRoot,
     FormField,
-    FieldErrors,
   ],
   template: `
     <h2 mat-dialog-title>{{ data.source ? 'Edit Income Source' : 'New Income Source' }}</h2>
@@ -46,8 +44,10 @@ export interface IncomeSourceFormValue {
         <mat-form-field appearance="outline">
           <mat-label>Source name</mat-label>
           <input matInput [formField]="sourceForm.name" placeholder="e.g. Primary Job / Tech Corp" />
+          @for (error of sourceForm.name().errors(); track $index) {
+            <mat-error>{{ error.message }}</mat-error>
+          }
         </mat-form-field>
-        <app-field-errors [field]="sourceForm.name" />
 
         <mat-form-field appearance="outline">
           <mat-label>Income Type</mat-label>
@@ -61,8 +61,10 @@ export interface IncomeSourceFormValue {
           <mat-label>Expected Amount</mat-label>
           <input matInput type="number" step="0.01" [formField]="sourceForm.amount" />
           <span matTextSuffix>{{ model().currency }}</span>
+          @for (error of sourceForm.amount().errors(); track $index) {
+            <mat-error>{{ error.message }}</mat-error>
+          }
         </mat-form-field>
-        <app-field-errors [field]="sourceForm.amount" />
 
         <div class="two-col">
           <mat-form-field appearance="outline">

@@ -314,7 +314,7 @@ describe('Assets Feature', () => {
       const cards = compiled.querySelectorAll('.asset-card');
       expect(cards.length).toBe(2);
 
-      const metricTiles = compiled.querySelectorAll('app-metric-tile');
+      const metricTiles = compiled.querySelectorAll('.metric-card');
       expect(metricTiles.length).toBe(4);
     });
 

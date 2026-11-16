@@ -1,9 +1,11 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
@@ -13,7 +15,6 @@ import { FinancialCalculatorService } from '../../core/services/financial-calcul
 import { WorthItStore } from '../../core/stores/worth-it.store';
 import { ConfirmDialog } from '../../shared/components/confirm-dialog/confirm-dialog';
 import { EmptyState } from '../../shared/components/empty-state/empty-state';
-import { MetricTile } from '../../shared/components/metric-tile/metric-tile';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { AssetFormDialog, AssetDialogResult } from './asset-form-dialog';
 import { AssetHistoryDialog } from './asset-history-dialog';
@@ -46,14 +47,15 @@ export type GoalFilterOption = 'all' | 'goal_eligible' | 'excluded';
   imports: [
     DatePipe,
     MatButtonModule,
+    MatButtonToggleModule,
     MatCardModule,
     MatChipsModule,
     MatDialogModule,
+    MatDividerModule,
     MatIconModule,
     MatMenuModule,
     MatSlideToggleModule,
     MatTooltipModule,
-    MetricTile,
     EmptyState,
     MoneyPipe,
   ],

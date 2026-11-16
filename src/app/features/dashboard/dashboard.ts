@@ -10,14 +10,15 @@ import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
+import { MatListModule } from '@angular/material/list';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { DashboardLayout } from '../../core/models/worth-it.model';
 import { StorageService } from '../../core/services/storage.service';
 import { WorthItStore } from '../../core/stores/worth-it.store';
 import { EmptyState } from '../../shared/components/empty-state/empty-state';
-import { MetricTile } from '../../shared/components/metric-tile/metric-tile';
-import { ProgressCard } from '../../shared/components/progress-card/progress-card';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { MonthsPipe } from '../../shared/pipes/months.pipe';
 
@@ -31,12 +32,13 @@ import { MonthsPipe } from '../../shared/pipes/months.pipe';
     MatButtonModule,
     MatButtonToggleModule,
     MatCardModule,
+    MatChipsModule,
+    MatDividerModule,
     MatIconModule,
+    MatListModule,
     MatProgressBarModule,
     MoneyPipe,
     MonthsPipe,
-    MetricTile,
-    ProgressCard,
     EmptyState,
   ],
   templateUrl: './dashboard.html',

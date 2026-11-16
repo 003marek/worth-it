@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { form, FormField, FormRoot, min, required } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -8,7 +9,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInput } from '@angular/material/input';
 import { Asset } from '../../core/models/worth-it.model';
 import { WorthItStore } from '../../core/stores/worth-it.store';
-import { FieldErrors } from '../../shared/components/field-errors/field-errors';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 
 export interface UpdateBalanceFormValue {
@@ -29,6 +29,7 @@ export interface UpdateBalanceDialogResult {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     MatDialogModule,
+    MatCardModule,
     MatFormFieldModule,
     MatInput,
     MatCheckboxModule,
@@ -36,24 +37,27 @@ export interface UpdateBalanceDialogResult {
     MatIconModule,
     FormRoot,
     FormField,
-    FieldErrors,
     MoneyPipe,
   ],
   template: `
     <h2 mat-dialog-title>Update balance: {{ data.asset.name }}</h2>
     <form [formRoot]="updateForm">
       <mat-dialog-content class="form-grid">
-        <div class="current-balance-info">
-          <span class="label">Current recorded balance:</span>
-          <span class="value">{{ data.asset.balance | money:data.asset.currency }}</span>
-        </div>
+        <mat-card appearance="outlined" class="current-balance-card">
+          <mat-card-content class="current-balance-info">
+            <span class="label">Current recorded balance:</span>
+            <span class="value">{{ data.asset.balance | money:data.asset.currency }}</span>
+          </mat-card-content>
+        </mat-card>
 
         <mat-form-field appearance="outline">
           <mat-label>New balance</mat-label>
           <input matInput type="number" step="any" [formField]="updateForm.newBalance" />
           <span matTextSuffix>{{ data.asset.currency }}</span>
+          @for (error of updateForm.newBalance().errors(); track $index) {
+            <mat-error>{{ error.message }}</mat-error>
+          }
         </mat-form-field>
-        <app-field-errors [field]="updateForm.newBalance" />
 
         <mat-form-field appearance="outline">
           <mat-label>Note (optional)</mat-label>
@@ -65,14 +69,16 @@ export interface UpdateBalanceDialogResult {
         </mat-form-field>
 
         @if (hasPending()) {
-          <div class="pending-accounting-notice">
-            <mat-checkbox [formField]="updateForm.markPendingReflected" color="primary">
-              <span class="checkbox-label">
-                Also mark {{ pendingCount() }} pending actual income/expense record{{ pendingCount() === 1 ? '' : 's' }}
-                ({{ pendingNet() | money }}) as reflected in this new balance so they aren't counted twice.
-              </span>
-            </mat-checkbox>
-          </div>
+          <mat-card appearance="outlined" class="pending-accounting-notice">
+            <mat-card-content>
+              <mat-checkbox [formField]="updateForm.markPendingReflected" color="primary">
+                <span class="checkbox-label">
+                  Also mark {{ pendingCount() }} pending actual income/expense record{{ pendingCount() === 1 ? '' : 's' }}
+                  ({{ pendingNet() | money }}) as reflected in this new balance so they aren't counted twice.
+                </span>
+              </mat-checkbox>
+            </mat-card-content>
+          </mat-card>
         }
       </mat-dialog-content>
 
@@ -93,14 +99,15 @@ export interface UpdateBalanceDialogResult {
       padding-top: 8px;
     }
 
+    .current-balance-card {
+      background: var(--mat-sys-surface-container);
+      margin-bottom: 6px;
+    }
+
     .current-balance-info {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 14px;
-      border-radius: 8px;
-      background: var(--mat-sys-surface-container);
-      margin-bottom: 6px;
 
       .label {
         font-size: 0.875rem;
@@ -115,10 +122,7 @@ export interface UpdateBalanceDialogResult {
     }
 
     .pending-accounting-notice {
-      padding: 10px 12px;
-      border-radius: 8px;
       background: var(--mat-sys-surface-container);
-      border: 1px solid var(--mat-sys-outline-variant, rgba(0, 0, 0, 0.12));
 
       .checkbox-label {
         font-size: 0.8125rem;

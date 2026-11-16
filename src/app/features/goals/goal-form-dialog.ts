@@ -5,7 +5,6 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { Goal } from '../../core/models/worth-it.model';
-import { FieldErrors } from '../../shared/components/field-errors/field-errors';
 
 /**
  * REFERENCE IMPLEMENTATION of the Signal Forms pattern used across Worth It.
@@ -19,7 +18,7 @@ export interface GoalFormValue {
 @Component({
   selector: 'app-goal-form-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatDialogModule, MatFormFieldModule, MatInput, MatButton, FormRoot, FormField, FieldErrors],
+  imports: [MatDialogModule, MatFormFieldModule, MatInput, MatButton, FormRoot, FormField],
   template: `
     <h2 mat-dialog-title>{{ data.goal ? 'Edit goal' : 'New goal' }}</h2>
     <form [formRoot]="goalForm">
@@ -27,15 +26,19 @@ export interface GoalFormValue {
         <mat-form-field appearance="outline">
           <mat-label>Goal name</mat-label>
           <input matInput [formField]="goalForm.name" placeholder="e.g. Apartment" />
+          @for (error of goalForm.name().errors(); track $index) {
+            <mat-error>{{ error.message }}</mat-error>
+          }
         </mat-form-field>
-        <app-field-errors [field]="goalForm.name" />
 
         <mat-form-field appearance="outline">
           <mat-label>Additional amount needed</mat-label>
           <input matInput type="number" [formField]="goalForm.targetAmount" />
           <span matTextSuffix>PLN</span>
+          @for (error of goalForm.targetAmount().errors(); track $index) {
+            <mat-error>{{ error.message }}</mat-error>
+          }
         </mat-form-field>
-        <app-field-errors [field]="goalForm.targetAmount" />
       </mat-dialog-content>
       <mat-dialog-actions align="end">
         <button mat-button type="button" mat-dialog-close>Cancel</button>
@@ -44,7 +47,7 @@ export interface GoalFormValue {
     </form>
   `,
   styles: `
-    .form-grid { display: flex; flex-direction: column; gap: 4px; min-width: min(420px, 80vw); }
+    .form-grid { display: flex; flex-direction: column; gap: 12px; min-width: min(420px, 80vw); padding-top: 8px; }
   `,
 })
 export class GoalFormDialog {

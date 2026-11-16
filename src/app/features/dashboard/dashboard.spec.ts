@@ -187,7 +187,7 @@ describe('Dashboard Component', () => {
     expect(compiled.querySelector('.financial-overview-layout')).toBeTruthy();
 
     // Wealth breakdown tiles
-    const tiles = compiled.querySelectorAll('app-metric-tile');
+    const tiles = compiled.querySelectorAll('.metric-card');
     expect(tiles.length).toBeGreaterThanOrEqual(5);
 
     // Cash flow card

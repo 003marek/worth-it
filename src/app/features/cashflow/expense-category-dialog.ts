@@ -6,7 +6,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { ExpenseCategory } from '../../core/models/worth-it.model';
-import { FieldErrors } from '../../shared/components/field-errors/field-errors';
 
 export interface ExpenseCategoryDialogData {
   category?: ExpenseCategory;
@@ -32,7 +31,6 @@ export interface ExpenseCategoryFormValue {
     MatButtonModule,
     FormRoot,
     FormField,
-    FieldErrors,
   ],
   template: `
     <h2 mat-dialog-title>{{ data.category ? 'Edit Expense Category' : 'New Expense Category' }}</h2>
@@ -41,15 +39,19 @@ export interface ExpenseCategoryFormValue {
         <mat-form-field appearance="outline">
           <mat-label>Category name</mat-label>
           <input matInput [formField]="categoryForm.name" placeholder="e.g. Rent, Food, Transport, Utilities" />
+          @for (error of categoryForm.name().errors(); track $index) {
+            <mat-error>{{ error.message }}</mat-error>
+          }
         </mat-form-field>
-        <app-field-errors [field]="categoryForm.name" />
 
         <mat-form-field appearance="outline">
           <mat-label>Expected monthly baseline</mat-label>
           <input matInput type="number" step="0.01" [formField]="categoryForm.expectedMonthlyAmount" />
           <span matTextSuffix>{{ model().currency }}</span>
+          @for (error of categoryForm.expectedMonthlyAmount().errors(); track $index) {
+            <mat-error>{{ error.message }}</mat-error>
+          }
         </mat-form-field>
-        <app-field-errors [field]="categoryForm.expectedMonthlyAmount" />
 
         <div class="toggle-row">
           <mat-slide-toggle [formField]="categoryForm.isEnabled">Active in baseline</mat-slide-toggle>

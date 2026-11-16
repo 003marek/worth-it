@@ -1,13 +1,13 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { form, FormField, FormRoot, min, required } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectChange, MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { IncomeRecord, IncomeSource, IncomeType } from '../../core/models/worth-it.model';
-import { FieldErrors } from '../../shared/components/field-errors/field-errors';
 
 export interface IncomeRecordDialogData {
   record?: IncomeRecord;
@@ -34,6 +34,7 @@ export interface IncomeRecordFormValue {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     MatDialogModule,
+    MatCardModule,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
@@ -41,7 +42,6 @@ export interface IncomeRecordFormValue {
     MatButtonModule,
     FormRoot,
     FormField,
-    FieldErrors,
   ],
   template: `
     <h2 mat-dialog-title>{{ data.record ? 'Edit Income Entry' : 'Record Received Income' }}</h2>
@@ -67,8 +67,10 @@ export interface IncomeRecordFormValue {
         <mat-form-field appearance="outline">
           <mat-label>Income description / name</mat-label>
           <input matInput [formField]="recordForm.name" placeholder="e.g. October Salary" />
+          @for (error of recordForm.name().errors(); track $index) {
+            <mat-error>{{ error.message }}</mat-error>
+          }
         </mat-form-field>
-        <app-field-errors [field]="recordForm.name" />
 
         <div class="two-col">
           <mat-form-field appearance="outline">
@@ -82,6 +84,9 @@ export interface IncomeRecordFormValue {
           <mat-form-field appearance="outline">
             <mat-label>Received Date</mat-label>
             <input matInput type="date" [formField]="recordForm.receivedDate" />
+            @for (error of recordForm.receivedDate().errors(); track $index) {
+              <mat-error>{{ error.message }}</mat-error>
+            }
           </mat-form-field>
         </div>
 
@@ -89,29 +94,35 @@ export interface IncomeRecordFormValue {
           <mat-label>Amount</mat-label>
           <input matInput type="number" step="0.01" [formField]="recordForm.amount" />
           <span matTextSuffix>{{ model().currency }}</span>
+          @for (error of recordForm.amount().errors(); track $index) {
+            <mat-error>{{ error.message }}</mat-error>
+          }
         </mat-form-field>
-        <app-field-errors [field]="recordForm.amount" />
 
         <div class="toggle-group">
-          <div class="toggle-row">
-            <mat-slide-toggle [formField]="recordForm.isActual">
-              Actual received income
-            </mat-slide-toggle>
-            <span class="toggle-hint">
-              When checked, this real income adjusts your total wealth. If unchecked, it serves as an expected or planning note.
-            </span>
-          </div>
+          <mat-card appearance="outlined" class="toggle-row">
+            <mat-card-content>
+              <mat-slide-toggle [formField]="recordForm.isActual">
+                Actual received income
+              </mat-slide-toggle>
+              <p class="toggle-hint">
+                When checked, this real income adjusts your total wealth. If unchecked, it serves as an expected or planning note.
+              </p>
+            </mat-card-content>
+          </mat-card>
 
           @if (model().isActual) {
-            <div class="toggle-row highlighted">
-              <mat-slide-toggle [formField]="recordForm.isReflectedInBalances">
-                Already included in my asset balances
-              </mat-slide-toggle>
-              <span class="toggle-hint">
-                Turn ON if your bank account balance already includes this payment.
-                Leave OFF if you haven't updated balances yet — this income will add to your total wealth immediately (spec §6.3 / §17).
-              </span>
-            </div>
+            <mat-card appearance="outlined" class="toggle-row highlighted">
+              <mat-card-content>
+                <mat-slide-toggle [formField]="recordForm.isReflectedInBalances">
+                  Already included in my asset balances
+                </mat-slide-toggle>
+                <p class="toggle-hint">
+                  Turn ON if your bank account balance already includes this payment.
+                  Leave OFF if you haven't updated balances yet — this income will add to your total wealth immediately (spec §6.3 / §17).
+                </p>
+              </mat-card-content>
+            </mat-card>
           }
         </div>
 
@@ -147,11 +158,6 @@ export interface IncomeRecordFormValue {
       padding: 8px 0 12px;
     }
     .toggle-row {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      padding: 8px;
-      border-radius: 8px;
       background-color: var(--mat-sys-surface-container-low);
 
       &.highlighted {
@@ -160,6 +166,7 @@ export interface IncomeRecordFormValue {
       }
     }
     .toggle-hint {
+      margin: 4px 0 0;
       font-size: 0.75rem;
       color: var(--mat-sys-on-surface-variant);
       line-height: 1.35;

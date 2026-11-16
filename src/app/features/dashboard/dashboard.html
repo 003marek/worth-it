@@ -72,10 +72,12 @@
       <mat-card class="dash-card hero-goal-card">
         <mat-card-content>
           <div class="dash-card-header card-top-bar">
-            <span class="priority-badge">
-              <mat-icon>star</mat-icon> Current Focus Goal
-            </span>
-            <a routerLink="/goals" class="goal-link">
+            <mat-chip-set>
+              <mat-chip class="priority-badge" highlighted>
+                <mat-icon matChipAvatar>star</mat-icon> Current Focus Goal
+              </mat-chip>
+            </mat-chip-set>
+            <a mat-button color="primary" routerLink="/goals" class="goal-link">
               Manage Goals <mat-icon>arrow_forward</mat-icon>
             </a>
           </div>
@@ -113,43 +115,45 @@
               </div>
             </div>
 
-            <!-- Clearly separated Projected completion box (styled with .projected) -->
-            <div class="projected-completion-box projected">
-              <div class="projected-header">
-                <mat-icon>insights</mat-icon>
-                <span>Projected Timeline</span>
-              </div>
+            <!-- Clearly separated Projected completion card (styled with .projected) -->
+            <mat-card appearance="outlined" class="projected-completion-box projected">
+              <mat-card-content>
+                <div class="projected-header">
+                  <mat-icon>insights</mat-icon>
+                  <span>Projected Timeline</span>
+                </div>
 
-              @if (active.isFullyFunded) {
-                <div class="projected-timeline">
-                  <span class="projected-date">Fully Funded Today! 🎉</span>
-                </div>
-                <p class="assumption-note">
-                  This goal has reached 100% funding and is ready to be completed in the Goals tab.
-                </p>
-              } @else if (monthlySurplus() <= 0) {
-                <div class="projected-timeline">
-                  <span class="projected-date">Timeline unavailable</span>
-                </div>
-                <p class="assumption-note">
-                  Monthly surplus is currently {{ monthlySurplus() | money:currency() }}/mo.
-                  Projected completion requires a positive monthly surplus. Check Cash Flow to adjust income/expenses.
-                </p>
-              } @else {
-                <div class="projected-timeline">
-                  <span class="projected-date">
-                    {{ active.estimatedCompletionDate | date:'MMMM yyyy' }}
-                  </span>
-                  <span class="projected-duration">
-                    ({{ active.estimatedCompletionMonths | months }})
-                  </span>
-                </div>
-                <p class="assumption-note">
-                  Projected from expected monthly surplus of {{ monthlySurplus() | money:currency() }}/mo
-                  after satisfying protected cushion requirements.
-                </p>
-              }
-            </div>
+                @if (active.isFullyFunded) {
+                  <div class="projected-timeline">
+                    <span class="projected-date">Fully Funded Today! 🎉</span>
+                  </div>
+                  <p class="assumption-note">
+                    This goal has reached 100% funding and is ready to be completed in the Goals tab.
+                  </p>
+                } @else if (monthlySurplus() <= 0) {
+                  <div class="projected-timeline">
+                    <span class="projected-date">Timeline unavailable</span>
+                  </div>
+                  <p class="assumption-note">
+                    Monthly surplus is currently {{ monthlySurplus() | money:currency() }}/mo.
+                    Projected completion requires a positive monthly surplus. Check Cash Flow to adjust income/expenses.
+                  </p>
+                } @else {
+                  <div class="projected-timeline">
+                    <span class="projected-date">
+                      {{ active.estimatedCompletionDate | date:'MMMM yyyy' }}
+                    </span>
+                    <span class="projected-duration">
+                      ({{ active.estimatedCompletionMonths | months }})
+                    </span>
+                  </div>
+                  <p class="assumption-note">
+                    Projected from expected monthly surplus of {{ monthlySurplus() | money:currency() }}/mo
+                    after satisfying protected cushion requirements.
+                  </p>
+                }
+              </mat-card-content>
+            </mat-card>
           } @else if (completedGoalsCount() > 0) {
             <app-empty-state
               icon="emoji_events"
@@ -182,26 +186,31 @@
               <mat-icon>shield</mat-icon>
               <h3>Financial Cushion Status</h3>
             </div>
-            <span
-              class="status-badge"
-              [class.enabled]="cushionStatus().isEnabled"
-              [class.disabled]="!cushionStatus().isEnabled"
-            >
-              {{ cushionStatus().isEnabled ? 'Enabled' : 'Disabled' }}
-            </span>
+            <mat-chip-set>
+              <mat-chip
+                class="status-badge"
+                [highlighted]="cushionStatus().isEnabled"
+                [class.enabled]="cushionStatus().isEnabled"
+                [class.disabled]="!cushionStatus().isEnabled"
+              >
+                {{ cushionStatus().isEnabled ? 'Enabled' : 'Disabled' }}
+              </mat-chip>
+            </mat-chip-set>
           </div>
 
           @if (cushionStatus().isEnabled) {
             @if (cushionStatus().deficit > 0) {
               <!-- Priority banner when enabled & deficit > 0 -->
-              <div class="priority-banner">
-                <mat-icon>warning</mat-icon>
-                <span>
-                  Protected reserve has funding priority — new savings replenish the cushion
-                  (<strong>{{ cushionStatus().deficit | money:currency() }}</strong> needed)
-                  before active goal funding resumes.
-                </span>
-              </div>
+              <mat-card appearance="outlined" class="priority-banner">
+                <mat-card-content class="priority-banner-content">
+                  <mat-icon>warning</mat-icon>
+                  <span>
+                    Protected reserve has funding priority — new savings replenish the cushion
+                    (<strong>{{ cushionStatus().deficit | money:currency() }}</strong> needed)
+                    before active goal funding resumes.
+                  </span>
+                </mat-card-content>
+              </mat-card>
             }
 
             <div class="cushion-grid">
@@ -239,7 +248,7 @@
           }
 
           <div class="cushion-actions">
-            <a routerLink="/settings">
+            <a mat-button color="primary" routerLink="/settings">
               <mat-icon>tune</mat-icon> Configure Cushion in Settings
             </a>
           </div>
@@ -251,50 +260,52 @@
         <mat-card-content>
           <div class="dash-card-header section-header">
             <h3>Upcoming Goals Queue</h3>
-            <a routerLink="/goals">View All Goals</a>
+            <a mat-button color="primary" routerLink="/goals">View All Goals</a>
           </div>
 
           @if (upcomingGoalsFunding().length > 0) {
             <div class="goals-list">
               @for (item of upcomingGoalsFunding(); track item.goal.id) {
-                <div class="upcoming-goal-row">
-                  <div class="row-main">
-                    <div class="goal-info">
-                      <span class="order-badge">#{{ item.goal.order + 1 }}</span>
-                      <span class="goal-name-text">{{ item.goal.name }}</span>
+                <mat-card appearance="outlined" class="upcoming-goal-row">
+                  <mat-card-content class="upcoming-goal-content">
+                    <div class="row-main">
+                      <div class="goal-info">
+                        <mat-chip class="order-badge">#{{ item.goal.order + 1 }}</mat-chip>
+                        <span class="goal-name-text">{{ item.goal.name }}</span>
+                      </div>
+                      <div class="amounts-info">
+                        <span class="target-val">
+                          Target: {{ item.goal.targetAmount | money:currency() }}
+                        </span>
+                        <span class="remaining-sub">
+                          Distance: {{ item.remainingAmount | money:currency() }}
+                        </span>
+                      </div>
                     </div>
-                    <div class="amounts-info">
-                      <span class="target-val">
-                        Target: {{ item.goal.targetAmount | money:currency() }}
+
+                    <div class="row-progress">
+                      <mat-progress-bar
+                        mode="determinate"
+                        [value]="item.progressPercent"
+                      ></mat-progress-bar>
+                    </div>
+
+                    <div class="row-timeline">
+                      <span class="cascaded-label">
+                        Cascaded Wealth: {{ item.currentProgress | money:currency() }}
                       </span>
-                      <span class="remaining-sub">
-                        Distance: {{ item.remainingAmount | money:currency() }}
+                      <span class="projected">
+                        @if (item.isFullyFunded) {
+                          Fully Funded
+                        } @else if (item.estimatedCompletionDate) {
+                          Est: {{ item.estimatedCompletionDate | date:'MMM yyyy' }} ({{ item.estimatedCompletionMonths | months }})
+                        } @else {
+                          Timeline pending surplus
+                        }
                       </span>
                     </div>
-                  </div>
-
-                  <div class="row-progress">
-                    <mat-progress-bar
-                      mode="determinate"
-                      [value]="item.progressPercent"
-                    ></mat-progress-bar>
-                  </div>
-
-                  <div class="row-timeline">
-                    <span class="cascaded-label">
-                      Cascaded Wealth: {{ item.currentProgress | money:currency() }}
-                    </span>
-                    <span class="projected">
-                      @if (item.isFullyFunded) {
-                        Fully Funded
-                      } @else if (item.estimatedCompletionDate) {
-                        Est: {{ item.estimatedCompletionDate | date:'MMM yyyy' }} ({{ item.estimatedCompletionMonths | months }})
-                      } @else {
-                        Timeline pending surplus
-                      }
-                    </span>
-                  </div>
-                </div>
+                  </mat-card-content>
+                </mat-card>
               }
             </div>
           } @else {
@@ -318,46 +329,74 @@
     <div class="financial-overview-layout">
       <!-- 1. Wealth Breakdown Grid -->
       <section class="metrics-grid">
-        <app-metric-tile
-          label="Total Wealth"
-          [value]="wealthSummary().totalWealth"
-          [hint]="totalWealthHint()"
-          icon="account_balance_wallet"
-          [currency]="currency()"
-        />
+        <mat-card class="metric-card" appearance="outlined">
+          <mat-card-content class="metric-content">
+            <div class="metric-header">
+              <span class="metric-label">Total Wealth</span>
+              <mat-icon class="metric-icon" aria-hidden="true">account_balance_wallet</mat-icon>
+            </div>
+            <div class="metric-value">
+              {{ wealthSummary().totalWealth | money:currency() }}
+            </div>
+            <div class="metric-hint">{{ totalWealthHint() }}</div>
+          </mat-card-content>
+        </mat-card>
 
-        <app-metric-tile
-          label="Goal-Eligible Wealth"
-          [value]="wealthSummary().goalEligibleWealth"
-          [hint]="'Excluded: ' + (wealthSummary().excludedWealth | money:currency())"
-          icon="savings"
-          [currency]="currency()"
-        />
+        <mat-card class="metric-card" appearance="outlined">
+          <mat-card-content class="metric-content">
+            <div class="metric-header">
+              <span class="metric-label">Goal-Eligible Wealth</span>
+              <mat-icon class="metric-icon" aria-hidden="true">savings</mat-icon>
+            </div>
+            <div class="metric-value">
+              {{ wealthSummary().goalEligibleWealth | money:currency() }}
+            </div>
+            <div class="metric-hint">
+              Excluded: {{ wealthSummary().excludedWealth | money:currency() }}
+            </div>
+          </mat-card-content>
+        </mat-card>
 
-        <app-metric-tile
-          label="Financial Cushion"
-          [value]="wealthSummary().cushionFunded"
-          [hint]="'Target: ' + (wealthSummary().cushionTarget | money:currency())"
-          icon="shield"
-          [currency]="currency()"
-        />
+        <mat-card class="metric-card" appearance="outlined">
+          <mat-card-content class="metric-content">
+            <div class="metric-header">
+              <span class="metric-label">Financial Cushion</span>
+              <mat-icon class="metric-icon" aria-hidden="true">shield</mat-icon>
+            </div>
+            <div class="metric-value">
+              {{ wealthSummary().cushionFunded | money:currency() }}
+            </div>
+            <div class="metric-hint">
+              Target: {{ wealthSummary().cushionTarget | money:currency() }}
+            </div>
+          </mat-card-content>
+        </mat-card>
 
-        <app-metric-tile
-          label="Completed-Goal Reserves"
-          [value]="wealthSummary().reservedAmounts"
-          hint="Reserved for future spend"
-          icon="lock"
-          [currency]="currency()"
-        />
+        <mat-card class="metric-card" appearance="outlined">
+          <mat-card-content class="metric-content">
+            <div class="metric-header">
+              <span class="metric-label">Completed-Goal Reserves</span>
+              <mat-icon class="metric-icon" aria-hidden="true">lock</mat-icon>
+            </div>
+            <div class="metric-value">
+              {{ wealthSummary().reservedAmounts | money:currency() }}
+            </div>
+            <div class="metric-hint">Reserved for future spend</div>
+          </mat-card-content>
+        </mat-card>
 
-        <app-metric-tile
-          label="Available Goal Wealth"
-          [value]="wealthSummary().availableForGoals"
-          hint="Available for active milestones"
-          icon="flag"
-          tone="positive"
-          [currency]="currency()"
-        />
+        <mat-card class="metric-card" appearance="outlined">
+          <mat-card-content class="metric-content">
+            <div class="metric-header">
+              <span class="metric-label">Available Goal Wealth</span>
+              <mat-icon class="metric-icon" aria-hidden="true">flag</mat-icon>
+            </div>
+            <div class="metric-value positive">
+              {{ wealthSummary().availableForGoals | money:currency() }}
+            </div>
+            <div class="metric-hint">Available for active milestones</div>
+          </mat-card-content>
+        </mat-card>
       </section>
 
       <!-- 2. Monthly Cash Flow & Surplus Card -->
@@ -365,7 +404,7 @@
         <mat-card-content>
           <div class="dash-card-header cf-header">
             <h3>Monthly Cash Flow & Surplus</h3>
-            <a routerLink="/cashflow">Manage Cash Flow</a>
+            <a mat-button color="primary" routerLink="/cashflow">Manage Cash Flow</a>
           </div>
 
           <div class="cf-row">
@@ -404,27 +443,25 @@
           <mat-card-content>
             <div class="dash-card-header card-header-row">
               <h3>Assets Breakdown</h3>
-              <a routerLink="/assets">View All Assets</a>
+              <a mat-button color="primary" routerLink="/assets">View All Assets</a>
             </div>
 
             @if (store.assets().length > 0) {
-              <div class="assets-list">
-                @for (asset of assetBreakdown(); track asset.id) {
-                  <div class="asset-item">
-                    <div class="asset-left">
-                      <span class="asset-name">{{ asset.name }}</span>
-                      <div class="asset-meta">
-                        <span>{{ formatAssetType(asset.type) }}</span>
-                        <span
-                          class="eligibility-tag"
-                          [class.eligible]="asset.isGoalEligible"
-                          [class.excluded]="!asset.isGoalEligible"
-                        >
-                          {{ asset.isGoalEligible ? 'Goal-eligible' : 'Excluded' }}
-                        </span>
-                      </div>
-                    </div>
-                    <div class="asset-right">
+              <mat-list class="assets-list">
+                @for (asset of assetBreakdown(); track asset.id; let last = $last) {
+                  <mat-list-item class="asset-item">
+                    <span matListItemTitle class="asset-name">{{ asset.name }}</span>
+                    <span matListItemLine class="asset-meta">
+                      <span>{{ formatAssetType(asset.type) }}</span>
+                      <span
+                        class="eligibility-tag"
+                        [class.eligible]="asset.isGoalEligible"
+                        [class.excluded]="!asset.isGoalEligible"
+                      >
+                        {{ asset.isGoalEligible ? 'Goal-eligible' : 'Excluded' }}
+                      </span>
+                    </span>
+                    <div matListItemMeta class="asset-right">
                       <span class="asset-balance">
                         {{ asset.balance | money:asset.currency }}
                       </span>
@@ -432,9 +469,12 @@
                         {{ asset.percentOfTotal | number:'1.1-1' }}% of total
                       </div>
                     </div>
-                  </div>
+                  </mat-list-item>
+                  @if (!last) {
+                    <mat-divider></mat-divider>
+                  }
                 }
-              </div>
+              </mat-list>
             } @else {
               <app-empty-state
                 icon="account_balance_wallet"
@@ -452,46 +492,66 @@
           <mat-card-content>
             <div class="dash-card-header card-header-row">
               <h3>Active Goal Progress</h3>
-              <a routerLink="/goals">Goals Roadmap</a>
+              <a mat-button color="primary" routerLink="/goals">Goals Roadmap</a>
             </div>
 
             @if (activeGoalSummary(); as active) {
-              <app-progress-card
-                [label]="active.goal.name"
-                [current]="active.currentProgress"
-                [target]="active.goal.targetAmount"
-                [percent]="active.progressPercent"
-                [subtitle]="active.isFullyFunded ? 'Fully Funded' : ('Remaining: ' + (active.remainingAmount | money:currency()))"
-                [currency]="currency()"
-              />
+              <mat-card appearance="outlined" class="progress-summary-card">
+                <mat-card-content>
+                  <div class="progress-header-row">
+                    <div class="progress-label-group">
+                      <span class="progress-label">{{ active.goal.name }}</span>
+                      <span class="progress-subtitle">
+                        {{ active.isFullyFunded ? 'Fully Funded' : ('Remaining: ' + (active.remainingAmount | money:currency())) }}
+                      </span>
+                    </div>
+                    <span class="progress-percent">{{ active.progressPercent | number:'1.0-0' }}%</span>
+                  </div>
 
-              <div class="projected-completion-box projected" style="margin-top: 16px;">
-                <div class="projected-header">
-                  <mat-icon>insights</mat-icon>
-                  <span>Projected Completion</span>
-                </div>
-                @if (active.isFullyFunded) {
-                  <div class="projected-timeline">
-                    <span class="projected-date">Fully Funded</span>
-                  </div>
-                } @else if (active.estimatedCompletionDate) {
-                  <div class="projected-timeline">
-                    <span class="projected-date">
-                      {{ active.estimatedCompletionDate | date:'MMMM yyyy' }}
+                  <mat-progress-bar
+                    mode="determinate"
+                    [value]="active.progressPercent"
+                  ></mat-progress-bar>
+
+                  <div class="progress-amounts-row">
+                    <span class="progress-current">
+                      {{ active.currentProgress | money:currency() }}
                     </span>
-                    <span class="projected-duration">
-                      ({{ active.estimatedCompletionMonths | months }})
-                    </span>
+                    <span class="progress-separator">/</span>
+                    <span class="progress-target">{{ active.goal.targetAmount | money:currency() }}</span>
                   </div>
-                  <p class="assumption-note">
-                    Based on current monthly surplus of {{ monthlySurplus() | money:currency() }}/mo
-                  </p>
-                } @else {
-                  <p class="assumption-note">
-                    Requires positive monthly surplus in Cash Flow.
-                  </p>
-                }
-              </div>
+                </mat-card-content>
+              </mat-card>
+
+              <mat-card appearance="outlined" class="projected-completion-box projected" style="margin-top: 16px;">
+                <mat-card-content>
+                  <div class="projected-header">
+                    <mat-icon>insights</mat-icon>
+                    <span>Projected Completion</span>
+                  </div>
+                  @if (active.isFullyFunded) {
+                    <div class="projected-timeline">
+                      <span class="projected-date">Fully Funded</span>
+                    </div>
+                  } @else if (active.estimatedCompletionDate) {
+                    <div class="projected-timeline">
+                      <span class="projected-date">
+                        {{ active.estimatedCompletionDate | date:'MMMM yyyy' }}
+                      </span>
+                      <span class="projected-duration">
+                        ({{ active.estimatedCompletionMonths | months }})
+                      </span>
+                    </div>
+                    <p class="assumption-note">
+                      Based on current monthly surplus of {{ monthlySurplus() | money:currency() }}/mo
+                    </p>
+                  } @else {
+                    <p class="assumption-note">
+                      Requires positive monthly surplus in Cash Flow.
+                    </p>
+                  }
+                </mat-card-content>
+              </mat-card>
             } @else {
               <app-empty-state
                 icon="flag"

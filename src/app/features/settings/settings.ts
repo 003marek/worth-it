@@ -15,6 +15,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatListModule } from '@angular/material/list';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
@@ -30,7 +31,6 @@ import { StorageService } from '../../core/services/storage.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { WorthItStore } from '../../core/stores/worth-it.store';
 import { ConfirmDialog } from '../../shared/components/confirm-dialog/confirm-dialog';
-import { FieldErrors } from '../../shared/components/field-errors/field-errors';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 
 export interface CushionFormModel {
@@ -54,6 +54,7 @@ export interface PreferencesFormModel {
     MatButtonModule,
     MatIconModule,
     MatInputModule,
+    MatListModule,
     MatFormFieldModule,
     MatSelectModule,
     MatSlideToggleModule,
@@ -62,7 +63,6 @@ export interface PreferencesFormModel {
     RouterLink,
     FormRoot,
     FormField,
-    FieldErrors,
     MoneyPipe,
   ],
   template: `
@@ -104,8 +104,10 @@ export interface PreferencesFormModel {
                     [formField]="cushionForm.averageMonthlyExpenses"
                   />
                   <span matTextSuffix>PLN</span>
+                  @for (error of cushionForm.averageMonthlyExpenses().errors(); track $index) {
+                    <mat-error>{{ error.message }}</mat-error>
+                  }
                 </mat-form-field>
-                <app-field-errors [field]="cushionForm.averageMonthlyExpenses" />
 
                 <button
                   type="button"
@@ -129,53 +131,59 @@ export interface PreferencesFormModel {
                   />
                   <span matTextSuffix>months</span>
                   <mat-hint>Recommended: 3 to 12 months (max 60)</mat-hint>
+                  @for (error of cushionForm.coverageMonths().errors(); track $index) {
+                    <mat-error>{{ error.message }}</mat-error>
+                  }
                 </mat-form-field>
-                <app-field-errors [field]="cushionForm.coverageMonths" />
               </div>
             </div>
 
             <!-- Live formula display (spec §4.2) -->
-            <div class="cushion-formula-box" role="region" aria-label="Cushion formula">
-              <div class="formula-label">Financial Cushion Target Formula:</div>
-              <div class="formula-math">
-                <code>Financial Cushion Target = Average Monthly Expenses × Number of Months</code>
-              </div>
-              <div class="formula-result">
-                {{ cushionModel().averageMonthlyExpenses | money }} × {{ cushionModel().coverageMonths }} months =
-                <strong class="target-highlight">{{ liveCushionTarget() | money }}</strong>
-              </div>
-            </div>
+            <mat-card appearance="outlined" class="cushion-formula-box" role="region" aria-label="Cushion formula">
+              <mat-card-content class="formula-box-content">
+                <div class="formula-label">Financial Cushion Target Formula:</div>
+                <div class="formula-math">
+                  <code>Financial Cushion Target = Average Monthly Expenses × Number of Months</code>
+                </div>
+                <div class="formula-result">
+                  {{ cushionModel().averageMonthlyExpenses | money }} × {{ cushionModel().coverageMonths }} months =
+                  <strong class="target-highlight">{{ liveCushionTarget() | money }}</strong>
+                </div>
+              </mat-card-content>
+            </mat-card>
 
             <!-- Current funding status bar -->
-            <div class="cushion-status-box">
-              <div class="status-header">
-                <span class="status-label">Current Cushion Status</span>
-                <span class="status-percent">{{ cushionStatus().percent }}%</span>
-              </div>
-              <mat-progress-bar
-                mode="determinate"
-                [value]="cushionStatus().percent"
-                class="status-bar"
-              ></mat-progress-bar>
-              <div class="status-metrics">
-                <span>Funded: <strong>{{ cushionStatus().funded | money }}</strong></span>
-                <span>Target: <strong>{{ cushionStatus().target | money }}</strong></span>
-                @if (cushionStatus().deficit > 0) {
-                  <span class="deficit-text">
-                    Deficit: <strong>{{ cushionStatus().deficit | money }}</strong>
-                  </span>
-                } @else {
-                  <span class="funded-text">Fully Funded ✓</span>
-                }
-              </div>
+            <mat-card appearance="outlined" class="cushion-status-box">
+              <mat-card-content class="status-box-content">
+                <div class="status-header">
+                  <span class="status-label">Current Cushion Status</span>
+                  <span class="status-percent">{{ cushionStatus().percent }}%</span>
+                </div>
+                <mat-progress-bar
+                  mode="determinate"
+                  [value]="cushionStatus().percent"
+                  class="status-bar"
+                ></mat-progress-bar>
+                <div class="status-metrics">
+                  <span>Funded: <strong>{{ cushionStatus().funded | money }}</strong></span>
+                  <span>Target: <strong>{{ cushionStatus().target | money }}</strong></span>
+                  @if (cushionStatus().deficit > 0) {
+                    <span class="deficit-text">
+                      Deficit: <strong>{{ cushionStatus().deficit | money }}</strong>
+                    </span>
+                  } @else {
+                    <span class="funded-text">Fully Funded ✓</span>
+                  }
+                </div>
 
-              <div class="priority-rule-callout">
-                <mat-icon class="rule-icon">gavel</mat-icon>
-                <span>
-                  <strong>Priority Rule:</strong> The cushion must be 100% funded before any goal-eligible wealth can be allocated to goals.
-                </span>
-              </div>
-            </div>
+                <div class="priority-rule-callout">
+                  <mat-icon class="rule-icon">gavel</mat-icon>
+                  <span>
+                    <strong>Priority Rule:</strong> The cushion must be 100% funded before any goal-eligible wealth can be allocated to goals.
+                  </span>
+                </div>
+              </mat-card-content>
+            </mat-card>
 
             <div class="actions-row">
               <button
@@ -212,8 +220,10 @@ export interface PreferencesFormModel {
                     <mat-option value="GBP">GBP (British Pound)</mat-option>
                     <mat-option value="CHF">CHF (Swiss Franc)</mat-option>
                   </mat-select>
+                  @for (error of prefsForm.baseCurrency().errors(); track $index) {
+                    <mat-error>{{ error.message }}</mat-error>
+                  }
                 </mat-form-field>
-                <app-field-errors [field]="prefsForm.baseCurrency" />
               </div>
 
               <div class="form-field-group">
@@ -223,8 +233,10 @@ export interface PreferencesFormModel {
                     <mat-option value="goal_first">Goal-first dashboard</mat-option>
                     <mat-option value="financial_overview">Financial overview dashboard</mat-option>
                   </mat-select>
+                  @for (error of prefsForm.defaultDashboard().errors(); track $index) {
+                    <mat-error>{{ error.message }}</mat-error>
+                  }
                 </mat-form-field>
-                <app-field-errors [field]="prefsForm.defaultDashboard" />
               </div>
 
               <div class="form-field-group">
@@ -235,8 +247,10 @@ export interface PreferencesFormModel {
                     <mat-option value="light">Light Mode</mat-option>
                     <mat-option value="dark">Dark Mode</mat-option>
                   </mat-select>
+                  @for (error of prefsForm.theme().errors(); track $index) {
+                    <mat-error>{{ error.message }}</mat-error>
+                  }
                 </mat-form-field>
-                <app-field-errors [field]="prefsForm.theme" />
               </div>
             </div>
 
@@ -335,59 +349,75 @@ export interface PreferencesFormModel {
 
           <div class="backup-actions-grid">
             <!-- Export -->
-            <div class="backup-action-box">
-              <div class="action-header">
-                <mat-icon class="action-icon">file_download</mat-icon>
-                <strong>Export Backup</strong>
-              </div>
-              <p class="action-text">Download a complete JSON snapshot of all goals, assets, transactions, and settings.</p>
-              <button mat-flat-button color="primary" (click)="exportBackup()">
-                <mat-icon>download</mat-icon> Export backup to JSON
-              </button>
-            </div>
+            <mat-card appearance="outlined" class="backup-action-box">
+              <mat-card-header>
+                <mat-icon mat-card-avatar class="action-icon">file_download</mat-icon>
+                <mat-card-title>Export Backup</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <p class="action-text">Download a complete JSON snapshot of all goals, assets, transactions, and settings.</p>
+              </mat-card-content>
+              <mat-card-actions>
+                <button mat-flat-button color="primary" (click)="exportBackup()">
+                  <mat-icon>download</mat-icon> Export backup to JSON
+                </button>
+              </mat-card-actions>
+            </mat-card>
 
             <!-- Import -->
-            <div class="backup-action-box">
-              <div class="action-header">
-                <mat-icon class="action-icon">file_upload</mat-icon>
-                <strong>Restore from Backup</strong>
-              </div>
-              <p class="action-text">Restore all data from a previously exported Worth It JSON backup file.</p>
-              <input
-                type="file"
-                #fileInput
-                accept=".json"
-                style="display: none"
-                (change)="onFileSelected($event)"
-              />
-              <button mat-stroked-button color="primary" (click)="fileInput.click()">
-                <mat-icon>upload</mat-icon> Restore from JSON backup
-              </button>
-            </div>
+            <mat-card appearance="outlined" class="backup-action-box">
+              <mat-card-header>
+                <mat-icon mat-card-avatar class="action-icon">file_upload</mat-icon>
+                <mat-card-title>Restore from Backup</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <p class="action-text">Restore all data from a previously exported Worth It JSON backup file.</p>
+                <input
+                  type="file"
+                  #fileInput
+                  accept=".json"
+                  style="display: none"
+                  (change)="onFileSelected($event)"
+                />
+              </mat-card-content>
+              <mat-card-actions>
+                <button mat-stroked-button color="primary" (click)="fileInput.click()">
+                  <mat-icon>upload</mat-icon> Restore from JSON backup
+                </button>
+              </mat-card-actions>
+            </mat-card>
 
             <!-- Demo Data -->
-            <div class="backup-action-box">
-              <div class="action-header">
-                <mat-icon class="action-icon">dataset</mat-icon>
-                <strong>Demo Data</strong>
-              </div>
-              <p class="action-text">Populate the app with realistic sample goals, assets, and monthly cash flow.</p>
-              <button mat-stroked-button (click)="loadDemoData()">
-                <mat-icon>play_circle</mat-icon> Load Demo Data
-              </button>
-            </div>
+            <mat-card appearance="outlined" class="backup-action-box">
+              <mat-card-header>
+                <mat-icon mat-card-avatar class="action-icon">dataset</mat-icon>
+                <mat-card-title>Demo Data</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <p class="action-text">Populate the app with realistic sample goals, assets, and monthly cash flow.</p>
+              </mat-card-content>
+              <mat-card-actions>
+                <button mat-stroked-button (click)="loadDemoData()">
+                  <mat-icon>play_circle</mat-icon> Load Demo Data
+                </button>
+              </mat-card-actions>
+            </mat-card>
 
             <!-- Clear Data -->
-            <div class="backup-action-box destructive-box">
-              <div class="action-header">
-                <mat-icon class="action-icon error-icon">delete_forever</mat-icon>
-                <strong>Reset Application</strong>
-              </div>
-              <p class="action-text">Permanently delete all goals, assets, and settings from this browser.</p>
-              <button mat-flat-button color="warn" class="clear-data-btn" (click)="clearAllData()">
-                <mat-icon>delete</mat-icon> Clear All Local Data
-              </button>
-            </div>
+            <mat-card appearance="outlined" class="backup-action-box destructive-box">
+              <mat-card-header>
+                <mat-icon mat-card-avatar class="action-icon error-icon">delete_forever</mat-icon>
+                <mat-card-title>Reset Application</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <p class="action-text">Permanently delete all goals, assets, and settings from this browser.</p>
+              </mat-card-content>
+              <mat-card-actions>
+                <button mat-flat-button color="warn" class="clear-data-btn" (click)="clearAllData()">
+                  <mat-icon>delete</mat-icon> Clear All Local Data
+                </button>
+              </mat-card-actions>
+            </mat-card>
           </div>
         </mat-card-content>
       </mat-card>
@@ -487,8 +517,8 @@ export interface PreferencesFormModel {
       }
       .cushion-formula-box {
         background-color: var(--mat-sys-surface-container);
-        border-radius: 8px;
-        padding: 14px 16px;
+      }
+      .formula-box-content {
         display: flex;
         flex-direction: column;
         gap: 6px;
@@ -515,9 +545,8 @@ export interface PreferencesFormModel {
       }
       .cushion-status-box {
         background-color: var(--mat-sys-surface-container-low);
-        border: 1px solid var(--mat-sys-outline-variant);
-        border-radius: 8px;
-        padding: 14px 16px;
+      }
+      .status-box-content {
         display: flex;
         flex-direction: column;
         gap: 8px;
@@ -615,9 +644,6 @@ export interface PreferencesFormModel {
         flex-direction: column;
         justify-content: space-between;
         background-color: var(--mat-sys-surface-container);
-        border-radius: 8px;
-        padding: 16px;
-        gap: 12px;
       }
       .action-header {
         display: flex;

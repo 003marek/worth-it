@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { form, FormField, FormRoot, min, required } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { IncomeSource } from '../../core/models/worth-it.model';
-import { FieldErrors } from '../../shared/components/field-errors/field-errors';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 
 export interface SalaryUpdateDialogData {
@@ -26,42 +26,48 @@ export interface SalaryUpdateFormValue {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     MatDialogModule,
+    MatCardModule,
     MatFormFieldModule,
     MatInputModule,
     MatSlideToggleModule,
     MatButtonModule,
     FormRoot,
     FormField,
-    FieldErrors,
     MoneyPipe,
   ],
   template: `
     <h2 mat-dialog-title>Update Salary / Baseline</h2>
     <form [formRoot]="salaryForm">
       <mat-dialog-content class="form-grid">
-        <div class="current-info">
-          <span class="info-label">Updating source:</span>
-          <strong>{{ data.source.name }}</strong>
-          <span class="info-sub">
-            Current baseline: {{ data.source.amount | money:data.source.currency }}
-            @if (data.source.effectiveDate) {
-              (effective since {{ data.source.effectiveDate }})
-            }
-          </span>
-        </div>
+        <mat-card appearance="outlined" class="current-info-card">
+          <mat-card-content class="current-info">
+            <span class="info-label">Updating source:</span>
+            <strong>{{ data.source.name }}</strong>
+            <span class="info-sub">
+              Current baseline: {{ data.source.amount | money:data.source.currency }}
+              @if (data.source.effectiveDate) {
+                (effective since {{ data.source.effectiveDate }})
+              }
+            </span>
+          </mat-card-content>
+        </mat-card>
 
         <mat-form-field appearance="outline">
           <mat-label>New monthly salary / amount</mat-label>
           <input matInput type="number" step="0.01" [formField]="salaryForm.newAmount" />
           <span matTextSuffix>{{ data.source.currency }}</span>
+          @for (error of salaryForm.newAmount().errors(); track $index) {
+            <mat-error>{{ error.message }}</mat-error>
+          }
         </mat-form-field>
-        <app-field-errors [field]="salaryForm.newAmount" />
 
         <mat-form-field appearance="outline">
           <mat-label>Effective date</mat-label>
           <input matInput type="date" [formField]="salaryForm.effectiveDate" />
+          @for (error of salaryForm.effectiveDate().errors(); track $index) {
+            <mat-error>{{ error.message }}</mat-error>
+          }
         </mat-form-field>
-        <app-field-errors [field]="salaryForm.effectiveDate" />
 
         <div class="history-toggle-box">
           <mat-slide-toggle [formField]="salaryForm.logHistoryRecord">
@@ -94,14 +100,14 @@ export interface SalaryUpdateFormValue {
       min-width: min(440px, 85vw);
       padding-top: 8px;
     }
+    .current-info-card {
+      background-color: var(--mat-sys-surface-container);
+      margin-bottom: 8px;
+    }
     .current-info {
       display: flex;
       flex-direction: column;
       gap: 2px;
-      padding: 10px 14px;
-      border-radius: 8px;
-      background-color: var(--mat-sys-surface-container);
-      margin-bottom: 8px;
       font-size: 0.875rem;
     }
     .info-label {

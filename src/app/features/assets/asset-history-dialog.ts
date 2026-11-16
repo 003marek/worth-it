@@ -2,14 +2,16 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { form, FormField, FormRoot, min, required } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatChipsModule } from '@angular/material/chips';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInput } from '@angular/material/input';
+import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Asset } from '../../core/models/worth-it.model';
 import { WorthItStore } from '../../core/stores/worth-it.store';
-import { FieldErrors } from '../../shared/components/field-errors/field-errors';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 
 export interface HistoryRow {
@@ -33,6 +35,9 @@ export interface SnapshotFormValue {
   imports: [
     DatePipe,
     MatDialogModule,
+    MatCardModule,
+    MatChipsModule,
+    MatTableModule,
     MatFormFieldModule,
     MatInput,
     MatButtonModule,
@@ -40,117 +45,137 @@ export interface SnapshotFormValue {
     MatTooltipModule,
     FormRoot,
     FormField,
-    FieldErrors,
     MoneyPipe,
   ],
   template: `
     <div class="dialog-header">
       <h2 mat-dialog-title>History: {{ data.asset.name }}</h2>
-      <span class="asset-currency-badge">{{ data.asset.currency }}</span>
+      <mat-chip-set>
+        <mat-chip>{{ data.asset.currency }}</mat-chip>
+      </mat-chip-set>
     </div>
 
     <mat-dialog-content class="history-content">
       <!-- Manual Snapshot Signal Form -->
-      <section class="snapshot-card">
-        <h3 class="snapshot-title">Log historical snapshot</h3>
-        <form [formRoot]="snapshotForm" class="snapshot-form">
-          <div class="snapshot-row">
-            <div class="col-field date-field">
-              <mat-form-field appearance="outline" density="compact">
-                <mat-label>Date</mat-label>
-                <input matInput type="date" [formField]="snapshotForm.date" />
-              </mat-form-field>
-              <app-field-errors [field]="snapshotForm.date" />
-            </div>
+      <mat-card appearance="outlined" class="snapshot-card">
+        <mat-card-header>
+          <mat-card-title class="snapshot-title">Log historical snapshot</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <form [formRoot]="snapshotForm" class="snapshot-form">
+            <div class="snapshot-row">
+              <div class="col-field date-field">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Date</mat-label>
+                  <input matInput type="date" [formField]="snapshotForm.date" />
+                  @for (error of snapshotForm.date().errors(); track $index) {
+                    <mat-error>{{ error.message }}</mat-error>
+                  }
+                </mat-form-field>
+              </div>
 
-            <div class="col-field balance-field">
-              <mat-form-field appearance="outline" density="compact">
-                <mat-label>Balance</mat-label>
-                <input matInput type="number" step="any" [formField]="snapshotForm.balance" />
-                <span matTextSuffix>{{ data.asset.currency }}</span>
-              </mat-form-field>
-              <app-field-errors [field]="snapshotForm.balance" />
-            </div>
+              <div class="col-field balance-field">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Balance</mat-label>
+                  <input matInput type="number" step="any" [formField]="snapshotForm.balance" />
+                  <span matTextSuffix>{{ data.asset.currency }}</span>
+                  @for (error of snapshotForm.balance().errors(); track $index) {
+                    <mat-error>{{ error.message }}</mat-error>
+                  }
+                </mat-form-field>
+              </div>
 
-            <div class="col-field note-field">
-              <mat-form-field appearance="outline" density="compact">
-                <mat-label>Note (optional)</mat-label>
-                <input
-                  matInput
-                  [formField]="snapshotForm.note"
-                  placeholder="e.g. End of year snapshot"
-                />
-              </mat-form-field>
-            </div>
+              <div class="col-field note-field">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Note (optional)</mat-label>
+                  <input
+                    matInput
+                    [formField]="snapshotForm.note"
+                    placeholder="e.g. End of year snapshot"
+                  />
+                </mat-form-field>
+              </div>
 
-            <div class="col-action">
-              <button
-                mat-flat-button
-                type="submit"
-                [disabled]="snapshotForm().submitting()"
-                class="add-btn"
-              >
-                <mat-icon>add</mat-icon>
-                <span>Add</span>
-              </button>
+              <div class="col-action">
+                <button
+                  mat-flat-button
+                  type="submit"
+                  [disabled]="snapshotForm().submitting()"
+                  class="add-btn"
+                >
+                  <mat-icon>add</mat-icon>
+                  <span>Add</span>
+                </button>
+              </div>
             </div>
-          </div>
-        </form>
-      </section>
+          </form>
+        </mat-card-content>
+      </mat-card>
 
-      <!-- History Table / List -->
+      <!-- History Material Table -->
       <section class="history-list-section">
         <div class="table-container">
-          <table class="history-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Balance</th>
-                <th>Change</th>
-                <th>Note</th>
-                <th class="action-col"></th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (row of historyRows(); track row.id) {
-                <tr class="history-row">
-                  <td class="date-cell">{{ row.date | date:'yyyy-MM-dd' }}</td>
-                  <td class="balance-cell">{{ row.balance | money:data.asset.currency }}</td>
-                  <td class="delta-cell">
-                    @if (row.delta !== null) {
-                      <span
-                        class="delta-badge"
-                        [class.positive]="row.delta > 0"
-                        [class.negative]="row.delta < 0"
-                        [class.zero]="row.delta === 0"
-                      >
-                        {{ row.delta > 0 ? '+' : '' }}{{ row.delta | money:data.asset.currency }}
-                      </span>
-                    } @else {
-                      <span class="initial-tag">Initial</span>
-                    }
-                  </td>
-                  <td class="note-cell">{{ row.note || '—' }}</td>
-                  <td class="action-cell">
-                    <button
-                      mat-icon-button
-                      (click)="onDeleteHistory(row.id)"
-                      matTooltip="Delete this entry"
-                      aria-label="Delete history entry"
-                      class="delete-btn"
-                    >
-                      <mat-icon>delete</mat-icon>
-                    </button>
-                  </td>
-                </tr>
-              } @empty {
-                <tr>
-                  <td colspan="5" class="empty-cell">
-                    No balance history recorded for this asset yet.
-                  </td>
-                </tr>
-              }
-            </tbody>
+          <table mat-table [dataSource]="historyRows()" class="history-table">
+            <ng-container matColumnDef="date">
+              <th mat-header-cell *matHeaderCellDef>Date</th>
+              <td mat-cell *matCellDef="let row" class="date-cell">
+                {{ row.date | date:'yyyy-MM-dd' }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="balance">
+              <th mat-header-cell *matHeaderCellDef>Balance</th>
+              <td mat-cell *matCellDef="let row" class="balance-cell">
+                {{ row.balance | money:data.asset.currency }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="delta">
+              <th mat-header-cell *matHeaderCellDef>Change</th>
+              <td mat-cell *matCellDef="let row" class="delta-cell">
+                @if (row.delta !== null) {
+                  <span
+                    class="delta-badge"
+                    [class.positive]="row.delta > 0"
+                    [class.negative]="row.delta < 0"
+                    [class.zero]="row.delta === 0"
+                  >
+                    {{ row.delta > 0 ? '+' : '' }}{{ row.delta | money:data.asset.currency }}
+                  </span>
+                } @else {
+                  <mat-chip class="initial-tag">Initial</mat-chip>
+                }
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="note">
+              <th mat-header-cell *matHeaderCellDef>Note</th>
+              <td mat-cell *matCellDef="let row" class="note-cell">{{ row.note || '—' }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef class="action-col"></th>
+              <td mat-cell *matCellDef="let row" class="action-cell">
+                <button
+                  mat-icon-button
+                  (click)="onDeleteHistory(row.id)"
+                  matTooltip="Delete this entry"
+                  aria-label="Delete history entry"
+                  color="warn"
+                >
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+
+            <tr class="mat-row" *matNoDataRow>
+              <td class="mat-cell empty-cell" colspan="5">
+                No balance history recorded for this asset yet.
+              </td>
+            </tr>
           </table>
         </div>
       </section>
@@ -170,15 +195,6 @@ export interface SnapshotFormValue {
       h2 {
         margin: 0;
       }
-
-      .asset-currency-badge {
-        font-size: 0.75rem;
-        font-weight: 600;
-        padding: 3px 8px;
-        border-radius: 6px;
-        background: var(--mat-sys-surface-container-high);
-        color: var(--mat-sys-on-surface);
-      }
     }
 
     .history-content {
@@ -192,14 +208,11 @@ export interface SnapshotFormValue {
 
     .snapshot-card {
       background: var(--mat-sys-surface-container);
-      border-radius: 12px;
-      padding: 14px 16px;
 
       .snapshot-title {
-        margin: 0 0 10px;
-        font-size: 0.875rem;
+        font-size: 0.9375rem;
         font-weight: 600;
-        color: var(--mat-sys-on-surface);
+        margin-bottom: 8px;
       }
     }
 
@@ -241,30 +254,6 @@ export interface SnapshotFormValue {
 
     .history-table {
       width: 100%;
-      border-collapse: collapse;
-      text-align: left;
-      font-size: 0.875rem;
-
-      th {
-        padding: 10px 12px;
-        background: var(--mat-sys-surface-container);
-        color: var(--mat-sys-on-surface-variant);
-        font-weight: 600;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        border-bottom: 1px solid var(--mat-sys-outline-variant, rgba(0, 0, 0, 0.12));
-      }
-
-      td {
-        padding: 10px 12px;
-        border-bottom: 1px solid var(--mat-sys-outline-variant, rgba(0, 0, 0, 0.08));
-        color: var(--mat-sys-on-surface);
-      }
-
-      tr:last-child td {
-        border-bottom: none;
-      }
 
       .date-cell {
         font-family: monospace;
@@ -296,14 +285,6 @@ export interface SnapshotFormValue {
         }
       }
 
-      .initial-tag {
-        font-size: 0.75rem;
-        padding: 2px 6px;
-        border-radius: 4px;
-        background: var(--mat-sys-surface-container-high);
-        color: var(--mat-sys-on-surface-variant);
-      }
-
       .note-cell {
         color: var(--mat-sys-on-surface-variant);
         max-width: 180px;
@@ -314,18 +295,7 @@ export interface SnapshotFormValue {
 
       .action-cell {
         text-align: right;
-        padding-right: 6px;
         width: 44px;
-      }
-
-      .delete-btn {
-        color: var(--mat-sys-on-surface-variant);
-        opacity: 0.7;
-
-        &:hover {
-          opacity: 1;
-          color: var(--mat-sys-error);
-        }
       }
 
       .empty-cell {
@@ -340,6 +310,8 @@ export class AssetHistoryDialog {
   protected readonly data = inject<{ asset: Asset }>(MAT_DIALOG_DATA);
   protected readonly store = inject(WorthItStore);
   private readonly dialogRef = inject(MatDialogRef<AssetHistoryDialog>);
+
+  protected readonly displayedColumns = ['date', 'balance', 'delta', 'note', 'actions'] as const;
 
   private readonly today = () => new Date().toISOString().slice(0, 10);
 

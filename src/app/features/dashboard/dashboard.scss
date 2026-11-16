@@ -253,16 +253,18 @@
 }
 
 .priority-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: 10px;
   background-color: var(--mat-sys-error-container);
   color: var(--mat-sys-on-error-container);
   margin-bottom: 14px;
-  font-size: 0.875rem;
-  line-height: 1.4;
+  border-color: var(--mat-sys-error);
+
+  .priority-banner-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
 
   mat-icon {
     font-size: 1.25rem;
@@ -318,13 +320,14 @@
 }
 
 .upcoming-goal-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 14px;
   border-radius: 10px;
   background-color: var(--mat-sys-surface-container-high);
-  border: 1px solid var(--mat-sys-outline-variant);
+
+  .upcoming-goal-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
 
   .row-main {
     display: flex;
@@ -337,19 +340,6 @@
       display: flex;
       align-items: center;
       gap: 8px;
-
-      .order-badge {
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        background-color: var(--mat-sys-primary-container);
-        color: var(--mat-sys-on-primary-container);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.75rem;
-        font-weight: 700;
-      }
 
       .goal-name-text {
         font-weight: 600;
@@ -386,6 +376,67 @@
     .cascaded-label {
       color: var(--mat-sys-on-surface-variant);
     }
+  }
+}
+
+.progress-summary-card {
+  border-radius: 12px;
+
+  .progress-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+  }
+
+  .progress-label-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .progress-label {
+    font-weight: 500;
+    font-size: 1rem;
+    color: var(--mat-sys-on-surface);
+  }
+
+  .progress-subtitle {
+    font-size: 0.8125rem;
+    color: var(--mat-sys-on-surface-variant);
+    margin-top: 0.125rem;
+  }
+
+  .progress-percent {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--mat-sys-primary);
+  }
+
+  mat-progress-bar {
+    border-radius: 4px;
+    height: 8px;
+    margin-bottom: 0.75rem;
+  }
+
+  .progress-amounts-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    font-size: 0.875rem;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  .progress-current {
+    font-weight: 600;
+    color: var(--mat-sys-on-surface);
+  }
+
+  .progress-separator {
+    opacity: 0.6;
+  }
+
+  .progress-target {
+    opacity: 0.8;
   }
 }
 
@@ -440,15 +491,12 @@
 }
 
 .assets-list {
-  gap: 8px;
+  padding: 0;
 
   .asset-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    border-radius: 8px;
-    background-color: var(--mat-sys-surface-container-high);
+    height: auto !important;
+    min-height: 56px;
+    padding: 4px 0;
 
     .asset-name {
       font-weight: 500;
@@ -479,9 +527,16 @@
       }
     }
 
+    .asset-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
     .asset-balance {
       font-weight: 600;
       font-size: 0.9375rem;
+      color: var(--mat-sys-on-surface);
     }
 
     .asset-percent {

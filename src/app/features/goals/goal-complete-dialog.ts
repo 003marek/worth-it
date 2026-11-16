@@ -1,12 +1,13 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { form, FormField, FormRoot, min, required } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatChipsModule } from '@angular/material/chips';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatRadioModule } from '@angular/material/radio';
 import { Goal, GoalCompletionChoice } from '../../core/models/worth-it.model';
-import { FieldErrors } from '../../shared/components/field-errors/field-errors';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 
 export interface GoalCompleteDialogData {
@@ -31,13 +32,14 @@ export interface GoalCompleteFormModel {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     MatDialogModule,
+    MatCardModule,
+    MatChipsModule,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
     MatRadioModule,
     FormRoot,
     FormField,
-    FieldErrors,
     MoneyPipe,
   ],
   template: `
@@ -46,7 +48,9 @@ export interface GoalCompleteFormModel {
     </h2>
     <div class="goal-subtitle">
       <span class="goal-name">{{ data.goal.name }}</span>
-      <span class="target-chip">Target: {{ data.goal.targetAmount | money }}</span>
+      <mat-chip-set>
+        <mat-chip class="target-chip">Target: {{ data.goal.targetAmount | money }}</mat-chip>
+      </mat-chip-set>
     </div>
 
     <form [formRoot]="completeForm">
@@ -57,73 +61,86 @@ export interface GoalCompleteFormModel {
 
         <mat-radio-group [formField]="completeForm.choice" class="choices-group">
           <!-- Option 1: Spend -->
-          <div
+          <mat-card
+            appearance="outlined"
             class="choice-card"
             [class.selected]="completeForm.choice().value() === 'spend'"
           >
-            <mat-radio-button value="spend">
-              <div class="choice-title">Spend the money</div>
-            </mat-radio-button>
-            <p class="choice-description">
-              An actual expense will be recorded reducing total wealth. Any unspent amount carries forward to the next goal.
-            </p>
-            @if (completeForm.choice().value() === 'spend') {
-              <div class="amount-field-wrapper">
-                <mat-form-field appearance="outline" class="amount-field">
-                  <mat-label>Actual amount spent</mat-label>
-                  <input
-                    matInput
-                    type="number"
-                    [formField]="completeForm.spentAmount"
-                    placeholder="0"
-                  />
-                  <span matTextSuffix>PLN</span>
-                </mat-form-field>
-                <app-field-errors [field]="completeForm.spentAmount" />
-              </div>
-            }
-          </div>
+            <mat-card-content>
+              <mat-radio-button value="spend">
+                <span class="choice-title">Spend the money</span>
+              </mat-radio-button>
+              <p class="choice-description">
+                An actual expense will be recorded reducing total wealth. Any unspent amount carries forward to the next goal.
+              </p>
+              @if (completeForm.choice().value() === 'spend') {
+                <div class="amount-field-wrapper">
+                  <mat-form-field appearance="outline" class="amount-field">
+                    <mat-label>Actual amount spent</mat-label>
+                    <input
+                      matInput
+                      type="number"
+                      [formField]="completeForm.spentAmount"
+                      placeholder="0"
+                    />
+                    <span matTextSuffix>PLN</span>
+                    @for (error of completeForm.spentAmount().errors(); track $index) {
+                      <mat-error>{{ error.message }}</mat-error>
+                    }
+                  </mat-form-field>
+                </div>
+              }
+            </mat-card-content>
+          </mat-card>
 
           <!-- Option 2: Reserve -->
-          <div
+          <mat-card
+            appearance="outlined"
             class="choice-card"
             [class.selected]="completeForm.choice().value() === 'reserve'"
           >
-            <mat-radio-button value="reserve">
-              <div class="choice-title">Reserve the money</div>
-            </mat-radio-button>
-            <p class="choice-description">
-              Stays in total wealth but is earmarked for this completed goal and excluded from subsequent goals.
-            </p>
-            @if (completeForm.choice().value() === 'reserve') {
-              <div class="amount-field-wrapper">
-                <mat-form-field appearance="outline" class="amount-field">
-                  <mat-label>Amount to reserve</mat-label>
-                  <input
-                    matInput
-                    type="number"
-                    [formField]="completeForm.reservedAmount"
-                    placeholder="0"
-                  />
-                  <span matTextSuffix>PLN</span>
-                </mat-form-field>
-                <app-field-errors [field]="completeForm.reservedAmount" />
-              </div>
-            }
-          </div>
+            <mat-card-content>
+              <mat-radio-button value="reserve">
+                <span class="choice-title">Reserve the money</span>
+              </mat-radio-button>
+              <p class="choice-description">
+                Stays in total wealth but is earmarked for this completed goal and excluded from subsequent goals.
+              </p>
+              @if (completeForm.choice().value() === 'reserve') {
+                <div class="amount-field-wrapper">
+                  <mat-form-field appearance="outline" class="amount-field">
+                    <mat-label>Amount to reserve</mat-label>
+                    <input
+                      matInput
+                      type="number"
+                      [formField]="completeForm.reservedAmount"
+                      placeholder="0"
+                    />
+                    <span matTextSuffix>PLN</span>
+                    @for (error of completeForm.reservedAmount().errors(); track $index) {
+                      <mat-error>{{ error.message }}</mat-error>
+                    }
+                  </mat-form-field>
+                </div>
+              }
+            </mat-card-content>
+          </mat-card>
 
           <!-- Option 3: Release -->
-          <div
+          <mat-card
+            appearance="outlined"
             class="choice-card"
             [class.selected]="completeForm.choice().value() === 'release'"
           >
-            <mat-radio-button value="release">
-              <div class="choice-title">Release the money</div>
-            </mat-radio-button>
-            <p class="choice-description">
-              All money remains available for the next goal. No funds are spent or earmarked.
-            </p>
-          </div>
+            <mat-card-content>
+              <mat-radio-button value="release">
+                <span class="choice-title">Release the money</span>
+              </mat-radio-button>
+              <p class="choice-description">
+                All money remains available for the next goal. No funds are spent or earmarked.
+              </p>
+            </mat-card-content>
+          </mat-card>
         </mat-radio-group>
       </mat-dialog-content>
 
@@ -153,12 +170,6 @@ export interface GoalCompleteFormModel {
       font-weight: 600;
       color: var(--mat-sys-on-surface);
     }
-    .target-chip {
-      background: var(--mat-sys-surface-container-highest);
-      padding: 0.125rem 0.5rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-    }
     .dialog-content {
       display: flex;
       flex-direction: column;
@@ -177,9 +188,6 @@ export interface GoalCompleteFormModel {
       gap: 0.75rem;
     }
     .choice-card {
-      border: 1px solid var(--mat-sys-outline-variant);
-      border-radius: 8px;
-      padding: 0.75rem 1rem;
       background: var(--mat-sys-surface-container-low);
       transition: border-color 0.15s, background-color 0.15s;
 

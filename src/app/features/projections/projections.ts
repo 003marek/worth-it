@@ -10,15 +10,16 @@ import { RouterLink } from '@angular/router';
 import { form, FormField, FormRoot, min } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatTableModule } from '@angular/material/table';
 import { Goal, GoalFundingSummary } from '../../core/models/worth-it.model';
 import { FinancialCalculatorService } from '../../core/services/financial-calculator.service';
 import { WorthItStore } from '../../core/stores/worth-it.store';
 import { EmptyState } from '../../shared/components/empty-state/empty-state';
-import { FieldErrors } from '../../shared/components/field-errors/field-errors';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { MonthsPipe } from '../../shared/pipes/months.pipe';
 
@@ -50,13 +51,14 @@ export interface MilestoneProjection {
     RouterLink,
     FormRoot,
     FormField,
-    FieldErrors,
     MatButtonModule,
     MatCardModule,
+    MatChipsModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
     MatProgressBarModule,
+    MatTableModule,
     MoneyPipe,
     MonthsPipe,
     EmptyState,
@@ -107,6 +109,12 @@ export class Projections {
     const windfall = Number(this.simModel().oneTimeWindfall) || 0;
     return extra !== 0 || windfall !== 0;
   });
+
+  readonly milestoneColumns = computed(() =>
+    this.isSimulationActive()
+      ? ['horizon', 'baselineWealth', 'simulatedWealth', 'goalsAchieved']
+      : ['horizon', 'baselineWealth', 'goalsAchieved']
+  );
 
   readonly simulatedMonthlySurplus = computed(() => {
     const extra = Number(this.simModel().extraMonthlySavings) || 0;

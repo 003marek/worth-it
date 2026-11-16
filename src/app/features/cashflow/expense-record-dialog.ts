@@ -2,13 +2,13 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { form, FormField, FormRoot, min, required } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleChange, MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatCardModule } from '@angular/material/card';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectChange, MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { ExpenseCategory, ExpenseRecord } from '../../core/models/worth-it.model';
-import { FieldErrors } from '../../shared/components/field-errors/field-errors';
 
 export interface ExpenseRecordDialogData {
   record?: ExpenseRecord;
@@ -35,6 +35,7 @@ export interface ExpenseRecordFormValue {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     MatDialogModule,
+    MatCardModule,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
@@ -43,7 +44,6 @@ export interface ExpenseRecordFormValue {
     MatButtonModule,
     FormRoot,
     FormField,
-    FieldErrors,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -84,43 +84,54 @@ export interface ExpenseRecordFormValue {
             [formField]="expenseForm.categoryName"
             [placeholder]="model().mode === 'monthly_total' ? 'e.g. Total monthly living expenses' : 'e.g. Groceries / Supermarket'"
           />
+          @for (error of expenseForm.categoryName().errors(); track $index) {
+            <mat-error>{{ error.message }}</mat-error>
+          }
         </mat-form-field>
-        <app-field-errors [field]="expenseForm.categoryName" />
 
         <div class="two-col">
           <mat-form-field appearance="outline">
             <mat-label>Amount</mat-label>
             <input matInput type="number" step="0.01" [formField]="expenseForm.amount" />
             <span matTextSuffix>{{ model().currency }}</span>
+            @for (error of expenseForm.amount().errors(); track $index) {
+              <mat-error>{{ error.message }}</mat-error>
+            }
           </mat-form-field>
 
           <mat-form-field appearance="outline">
             <mat-label>Date</mat-label>
             <input matInput type="date" [formField]="expenseForm.date" />
+            @for (error of expenseForm.date().errors(); track $index) {
+              <mat-error>{{ error.message }}</mat-error>
+            }
           </mat-form-field>
         </div>
-        <app-field-errors [field]="expenseForm.amount" />
 
         <div class="toggle-group">
-          <div class="toggle-row">
-            <mat-slide-toggle [formField]="expenseForm.isActual">
-              Actual spent expense
-            </mat-slide-toggle>
-            <span class="toggle-hint">
-              When enabled, actual spending reduces your current total wealth (until asset balances are updated).
-            </span>
-          </div>
+          <mat-card appearance="outlined" class="toggle-row">
+            <mat-card-content>
+              <mat-slide-toggle [formField]="expenseForm.isActual">
+                Actual spent expense
+              </mat-slide-toggle>
+              <p class="toggle-hint">
+                When enabled, actual spending reduces your current total wealth (until asset balances are updated).
+              </p>
+            </mat-card-content>
+          </mat-card>
 
           @if (model().isActual) {
-            <div class="toggle-row highlighted">
-              <mat-slide-toggle [formField]="expenseForm.isReflectedInBalances">
-                Already reflected in asset balances
-              </mat-slide-toggle>
-              <span class="toggle-hint">
-                Turn ON if your bank/card account balance already accounts for this charge.
-                Leave OFF if you haven't refreshed account balances yet — this expense will immediately reduce wealth and active goal progress to prevent double counting (spec §7.2 / §17).
-              </span>
-            </div>
+            <mat-card appearance="outlined" class="toggle-row highlighted">
+              <mat-card-content>
+                <mat-slide-toggle [formField]="expenseForm.isReflectedInBalances">
+                  Already reflected in asset balances
+                </mat-slide-toggle>
+                <p class="toggle-hint">
+                  Turn ON if your bank/card account balance already accounts for this charge.
+                  Leave OFF if you haven't refreshed account balances yet — this expense will immediately reduce wealth and active goal progress to prevent double counting (spec §7.2 / §17).
+                </p>
+              </mat-card-content>
+            </mat-card>
           }
         </div>
 
@@ -161,11 +172,6 @@ export interface ExpenseRecordFormValue {
       padding: 8px 0 12px;
     }
     .toggle-row {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      padding: 8px;
-      border-radius: 8px;
       background-color: var(--mat-sys-surface-container-low);
 
       &.highlighted {
@@ -174,6 +180,7 @@ export interface ExpenseRecordFormValue {
       }
     }
     .toggle-hint {
+      margin: 4px 0 0;
       font-size: 0.75rem;
       color: var(--mat-sys-on-surface-variant);
       line-height: 1.35;

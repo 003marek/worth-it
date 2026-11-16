@@ -11,7 +11,6 @@ import { StockSale } from '../../core/models/worth-it.model';
 import { WorthItStore } from '../../core/stores/worth-it.store';
 import { ConfirmDialog } from '../../shared/components/confirm-dialog/confirm-dialog';
 import { EmptyState } from '../../shared/components/empty-state/empty-state';
-import { MetricTile } from '../../shared/components/metric-tile/metric-tile';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { StockSaleDialog } from './stock-sale-dialog';
 
@@ -26,23 +25,24 @@ import { StockSaleDialog } from './stock-sale-dialog';
     MatIconModule,
     MatTableModule,
     MatTooltipModule,
-    MetricTile,
     EmptyState,
     MoneyPipe,
   ],
   template: `
     <div class="page stock-sales-page">
       <!-- Spec §10.2: Explicit standalone notice banner -->
-      <div class="standalone-banner" role="note">
-        <mat-icon class="banner-icon">info</mat-icon>
-        <div class="banner-body">
-          <strong class="banner-title">Standalone historical log</strong>
-          <p class="banner-text">
-            Stock sales recorded here do not automatically modify your asset balances or total wealth.
-            Record taxes/fees as ordinary expenses and update asset balances manually when desired to prevent double counting.
-          </p>
-        </div>
-      </div>
+      <mat-card class="standalone-banner" appearance="outlined" role="note">
+        <mat-card-content class="banner-layout">
+          <mat-icon class="banner-icon">info</mat-icon>
+          <div class="banner-body">
+            <strong class="banner-title">Standalone historical log</strong>
+            <p class="banner-text">
+              Stock sales recorded here do not automatically modify your asset balances or total wealth.
+              Record taxes/fees as ordinary expenses and update asset balances manually when desired to prevent double counting.
+            </p>
+          </div>
+        </mat-card-content>
+      </mat-card>
 
       <!-- Header with Action -->
       <header class="page-header">
@@ -63,33 +63,47 @@ import { StockSaleDialog } from './stock-sale-dialog';
         </button>
       </header>
 
-      <!-- Summary Tiles (MetricTile) -->
+      <!-- Summary Cards -->
       <section class="tiles-grid" aria-label="Stock sales summary">
-        <app-metric-tile
-          label="Total sales count"
-          [value]="totalSalesCount()"
-          hint="Recorded sale transactions"
-          currency="PLN"
-          icon="receipt_long"
-        />
+        <mat-card class="metric-card" appearance="outlined">
+          <mat-card-content class="metric-content">
+            <div class="metric-header">
+              <span class="metric-label">Total sales count</span>
+              <mat-icon class="metric-icon" aria-hidden="true">receipt_long</mat-icon>
+            </div>
+            <div class="metric-value">
+              {{ totalSalesCount() }}
+            </div>
+            <div class="metric-hint">Recorded sale transactions</div>
+          </mat-card-content>
+        </mat-card>
 
-        <app-metric-tile
-          label="Total PLN equivalent"
-          [value]="totalPlnEquivalent()"
-          hint="Sum of proceeds in PLN"
-          currency="PLN"
-          icon="account_balance_wallet"
-          tone="positive"
-        />
+        <mat-card class="metric-card" appearance="outlined">
+          <mat-card-content class="metric-content">
+            <div class="metric-header">
+              <span class="metric-label">Total PLN equivalent</span>
+              <mat-icon class="metric-icon" aria-hidden="true">account_balance_wallet</mat-icon>
+            </div>
+            <div class="metric-value positive">
+              {{ totalPlnEquivalent() | money:'PLN' }}
+            </div>
+            <div class="metric-hint">Sum of proceeds in PLN</div>
+          </mat-card-content>
+        </mat-card>
 
         @for (item of currencyBreakdown(); track item.currency) {
-          <app-metric-tile
-            [label]="'Gross (' + item.currency + ')'"
-            [value]="item.grossValue"
-            [currency]="item.currency"
-            [hint]="item.count + ' sale(s) in ' + item.currency"
-            icon="payments"
-          />
+          <mat-card class="metric-card" appearance="outlined">
+            <mat-card-content class="metric-content">
+              <div class="metric-header">
+                <span class="metric-label">Gross ({{ item.currency }})</span>
+                <mat-icon class="metric-icon" aria-hidden="true">payments</mat-icon>
+              </div>
+              <div class="metric-value">
+                {{ item.grossValue | money:item.currency }}
+              </div>
+              <div class="metric-hint">{{ item.count }} sale(s) in {{ item.currency }}</div>
+            </mat-card-content>
+          </mat-card>
         }
       </section>
 
@@ -246,14 +260,13 @@ import { StockSaleDialog } from './stock-sale-dialog';
         gap: 20px;
       }
       .standalone-banner {
+        background-color: var(--mat-sys-surface-container);
+        border-left: 4px solid var(--mat-sys-primary);
+      }
+      .banner-layout {
         display: flex;
         align-items: flex-start;
         gap: 12px;
-        background-color: var(--mat-sys-surface-container);
-        border: 1px solid var(--mat-sys-outline-variant);
-        border-left: 4px solid var(--mat-sys-primary);
-        padding: 14px 18px;
-        border-radius: 8px;
       }
       .banner-icon {
         color: var(--mat-sys-primary);

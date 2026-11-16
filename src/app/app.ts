@@ -9,6 +9,7 @@ import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { map } from 'rxjs/operators';
 import { MatButtonModule } from '@angular/material/button';
+import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatMenuModule } from '@angular/material/menu';
@@ -28,6 +29,7 @@ import { MoneyPipe } from './shared/pipes/money.pipe';
     RouterLinkActive,
     MatToolbarModule,
     MatButtonModule,
+    MatChipsModule,
     MatIconModule,
     MatSidenavModule,
     MatListModule,

@@ -27,8 +27,6 @@ import {
 import { WorthItStore } from '../../core/stores/worth-it.store';
 import { ConfirmDialog } from '../../shared/components/confirm-dialog/confirm-dialog';
 import { EmptyState } from '../../shared/components/empty-state/empty-state';
-import { FieldErrors } from '../../shared/components/field-errors/field-errors';
-import { MetricTile } from '../../shared/components/metric-tile/metric-tile';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { ExpenseCategoryDialog } from './expense-category-dialog';
 import { ExpenseRecordDialog } from './expense-record-dialog';
@@ -54,8 +52,6 @@ import { SalaryUpdateDialog } from './salary-update-dialog';
     MatTooltipModule,
     FormRoot,
     FormField,
-    FieldErrors,
-    MetricTile,
     EmptyState,
     MoneyPipe,
   ],
@@ -72,63 +68,86 @@ import { SalaryUpdateDialog } from './salary-update-dialog';
 
       <!-- 1. Top Summary Strip -->
       <section class="summary-grid" aria-label="Monthly Cash Flow Overview">
-        <app-metric-tile
-          label="Expected Monthly Income"
-          [value]="store.monthlySurplusSummary().monthlyIncome"
-          [currency]="baseCurrency()"
-          icon="payments"
-          hint="From active recurring sources"
-        />
+        <mat-card class="metric-card" appearance="outlined">
+          <mat-card-content class="metric-content">
+            <div class="metric-header">
+              <span class="metric-label">Expected Monthly Income</span>
+              <mat-icon class="metric-icon" aria-hidden="true">payments</mat-icon>
+            </div>
+            <div class="metric-value">
+              {{ store.monthlySurplusSummary().monthlyIncome | money:baseCurrency() }}
+            </div>
+            <div class="metric-hint">From active recurring sources</div>
+          </mat-card-content>
+        </mat-card>
 
-        <app-metric-tile
-          label="Expected Monthly Expenses"
-          [value]="store.monthlySurplusSummary().monthlyExpenses"
-          [currency]="baseCurrency()"
-          icon="shopping_bag"
-          hint="Baseline recurring expenses"
-        />
+        <mat-card class="metric-card" appearance="outlined">
+          <mat-card-content class="metric-content">
+            <div class="metric-header">
+              <span class="metric-label">Expected Monthly Expenses</span>
+              <mat-icon class="metric-icon" aria-hidden="true">shopping_bag</mat-icon>
+            </div>
+            <div class="metric-value">
+              {{ store.monthlySurplusSummary().monthlyExpenses | money:baseCurrency() }}
+            </div>
+            <div class="metric-hint">Baseline recurring expenses</div>
+          </mat-card-content>
+        </mat-card>
 
-        <app-metric-tile
-          label="Projected Monthly Surplus"
-          [value]="store.monthlySurplusSummary().monthlySurplus"
-          [currency]="baseCurrency()"
-          [tone]="surplusTone()"
-          icon="trending_up"
-          hint="Funds cushion and active goals"
-        />
+        <mat-card class="metric-card" appearance="outlined">
+          <mat-card-content class="metric-content">
+            <div class="metric-header">
+              <span class="metric-label">Projected Monthly Surplus</span>
+              <mat-icon class="metric-icon" aria-hidden="true">trending_up</mat-icon>
+            </div>
+            <div class="metric-value" [class]="surplusTone()">
+              {{ store.monthlySurplusSummary().monthlySurplus | money:baseCurrency() }}
+            </div>
+            <div class="metric-hint">Funds cushion and active goals</div>
+          </mat-card-content>
+        </mat-card>
 
-        <app-metric-tile
-          label="Pending Actual Adjustments"
-          [value]="store.wealthSummary().pendingAdjustments"
-          [currency]="baseCurrency()"
-          [tone]="store.wealthSummary().pendingAdjustments >= 0 ? 'default' : 'negative'"
-          icon="sync"
-          hint="Unreflected actual records adjust current wealth"
-        />
+        <mat-card class="metric-card" appearance="outlined">
+          <mat-card-content class="metric-content">
+            <div class="metric-header">
+              <span class="metric-label">Pending Actual Adjustments</span>
+              <mat-icon class="metric-icon" aria-hidden="true">sync</mat-icon>
+            </div>
+            <div
+              class="metric-value"
+              [class.negative]="store.wealthSummary().pendingAdjustments < 0"
+            >
+              {{ store.wealthSummary().pendingAdjustments | money:baseCurrency() }}
+            </div>
+            <div class="metric-hint">Unreflected actual records adjust current wealth</div>
+          </mat-card-content>
+        </mat-card>
       </section>
 
       <!-- Pending Adjustments Action Banner -->
       @if (hasPendingAdjustments()) {
-        <div class="pending-alert-banner">
-          <div class="pending-alert-text">
-            <mat-icon class="pending-icon">info</mat-icon>
-            <span>
-              You have <strong>{{ pendingCount() }} unreflected actual record(s)</strong> adjusting
-              your total wealth by
-              <strong>{{ store.wealthSummary().pendingAdjustments | money:baseCurrency() }}</strong>.
-              Once your bank/asset balances are updated, mark them reflected so they aren't counted twice.
-            </span>
-          </div>
-          <button
-            mat-flat-button
-            color="primary"
-            class="reflect-btn"
-            (click)="onMarkAllReflected()"
-          >
-            <mat-icon>done_all</mat-icon>
-            Mark all reflected
-          </button>
-        </div>
+        <mat-card class="pending-alert-banner" appearance="outlined">
+          <mat-card-content class="pending-alert-layout">
+            <div class="pending-alert-text">
+              <mat-icon class="pending-icon">info</mat-icon>
+              <span>
+                You have <strong>{{ pendingCount() }} unreflected actual record(s)</strong> adjusting
+                your total wealth by
+                <strong>{{ store.wealthSummary().pendingAdjustments | money:baseCurrency() }}</strong>.
+                Once your bank/asset balances are updated, mark them reflected so they aren't counted twice.
+              </span>
+            </div>
+            <button
+              mat-flat-button
+              color="primary"
+              class="reflect-btn"
+              (click)="onMarkAllReflected()"
+            >
+              <mat-icon>done_all</mat-icon>
+              Mark all reflected
+            </button>
+          </mat-card-content>
+        </mat-card>
       }
 
       <!-- 2. Main Tabs -->
@@ -137,201 +156,213 @@ import { SalaryUpdateDialog } from './salary-update-dialog';
         <mat-tab label="Income">
           <div class="tab-content">
             <!-- Income Sources Section -->
-            <section class="section-card">
-              <div class="section-header">
-                <div>
-                  <h2 class="section-title">Income Sources</h2>
-                  <p class="section-desc">
-                    Expected baseline used for monthly surplus and goal projection timelines (spec §6.1–6.3).
-                  </p>
-                </div>
-                <button mat-flat-button color="primary" (click)="addIncomeSource()">
-                  <mat-icon>add</mat-icon>
-                  Add Income Source
-                </button>
-              </div>
-
-              @if (sortedIncomeSources().length === 0) {
-                <app-empty-state
-                  icon="savings"
-                  title="No income sources configured"
-                  message="Add your salary or other recurring income streams to establish your baseline projection surplus."
-                >
-                  <button mat-stroked-button color="primary" (click)="addIncomeSource()">
+            <mat-card class="section-card" appearance="outlined">
+              <mat-card-content class="section-card-content">
+                <div class="section-header">
+                  <div>
+                    <h2 class="section-title">Income Sources</h2>
+                    <p class="section-desc">
+                      Expected baseline used for monthly surplus and goal projection timelines (spec §6.1–6.3).
+                    </p>
+                  </div>
+                  <button mat-flat-button color="primary" (click)="addIncomeSource()">
+                    <mat-icon>add</mat-icon>
                     Add Income Source
                   </button>
-                </app-empty-state>
-              } @else {
-                <div class="items-list">
-                  @for (source of sortedIncomeSources(); track source.id) {
-                    <div class="item-row" [class.disabled-item]="!source.isEnabled">
-                      <div class="item-main">
-                        <div class="item-title-row">
-                          <span class="item-name">{{ source.name }}</span>
-                          <span class="badge" [class.badge-salary]="source.type === 'salary'">
-                            {{ source.type === 'salary' ? 'Salary' : 'Other' }}
-                          </span>
-                          <span class="badge badge-freq">{{ source.frequency }}</span>
-                          @if (!source.isEnabled) {
-                            <span class="badge badge-inactive">Paused in projections</span>
-                          }
-                        </div>
-                        <div class="item-meta">
-                          <span class="item-amount">{{ source.amount | money:source.currency }}</span>
-                          @if (source.effectiveDate) {
-                            <span class="item-meta-detail">Effective: {{ source.effectiveDate }}</span>
-                          }
-                        </div>
-                      </div>
-
-                      <div class="item-actions">
-                        <mat-slide-toggle
-                          [checked]="source.isEnabled"
-                          (change)="toggleIncomeSource(source, $event.checked)"
-                          matTooltip="Toggle to include or exclude from future monthly projections without erasing history"
-                        >
-                          {{ source.isEnabled ? 'Active' : 'Paused' }}
-                        </mat-slide-toggle>
-
-                        @if (source.type === 'salary') {
-                          <button
-                            mat-stroked-button
-                            class="update-salary-btn"
-                            (click)="updateSalary(source)"
-                            matTooltip="Update salary baseline and optionally preserve past baseline in history"
-                          >
-                            <mat-icon>price_change</mat-icon>
-                            Update salary / amount
-                          </button>
-                        }
-
-                        <button
-                          mat-icon-button
-                          (click)="editIncomeSource(source)"
-                          aria-label="Edit income source"
-                        >
-                          <mat-icon>edit</mat-icon>
-                        </button>
-
-                        <button
-                          mat-icon-button
-                          color="warn"
-                          (click)="deleteIncomeSource(source)"
-                          aria-label="Delete income source"
-                        >
-                          <mat-icon>delete</mat-icon>
-                        </button>
-                      </div>
-                    </div>
-                  }
                 </div>
-              }
-            </section>
+
+                @if (sortedIncomeSources().length === 0) {
+                  <app-empty-state
+                    icon="savings"
+                    title="No income sources configured"
+                    message="Add your salary or other recurring income streams to establish your baseline projection surplus."
+                  >
+                    <button mat-stroked-button color="primary" (click)="addIncomeSource()">
+                      Add Income Source
+                    </button>
+                  </app-empty-state>
+                } @else {
+                  <div class="items-list">
+                    @for (source of sortedIncomeSources(); track source.id) {
+                      <mat-card appearance="outlined" class="item-row" [class.disabled-item]="!source.isEnabled">
+                        <mat-card-content class="item-row-content">
+                          <div class="item-main">
+                            <div class="item-title-row">
+                              <span class="item-name">{{ source.name }}</span>
+                              <mat-chip-set>
+                                <mat-chip class="badge" [class.badge-salary]="source.type === 'salary'">
+                                  {{ source.type === 'salary' ? 'Salary' : 'Other' }}
+                                </mat-chip>
+                                <mat-chip class="badge badge-freq">{{ source.frequency }}</mat-chip>
+                                @if (!source.isEnabled) {
+                                  <mat-chip class="badge badge-inactive">Paused in projections</mat-chip>
+                                }
+                              </mat-chip-set>
+                            </div>
+                            <div class="item-meta">
+                              <span class="item-amount">{{ source.amount | money:source.currency }}</span>
+                              @if (source.effectiveDate) {
+                                <span class="item-meta-detail">Effective: {{ source.effectiveDate }}</span>
+                              }
+                            </div>
+                          </div>
+
+                          <div class="item-actions">
+                            <mat-slide-toggle
+                              [checked]="source.isEnabled"
+                              (change)="toggleIncomeSource(source, $event.checked)"
+                              matTooltip="Toggle to include or exclude from future monthly projections without erasing history"
+                            >
+                              {{ source.isEnabled ? 'Active' : 'Paused' }}
+                            </mat-slide-toggle>
+
+                            @if (source.type === 'salary') {
+                              <button
+                                mat-stroked-button
+                                class="update-salary-btn"
+                                (click)="updateSalary(source)"
+                                matTooltip="Update salary baseline and optionally preserve past baseline in history"
+                              >
+                                <mat-icon>price_change</mat-icon>
+                                Update salary / amount
+                              </button>
+                            }
+
+                            <button
+                              mat-icon-button
+                              (click)="editIncomeSource(source)"
+                              aria-label="Edit income source"
+                            >
+                              <mat-icon>edit</mat-icon>
+                            </button>
+
+                            <button
+                              mat-icon-button
+                              color="warn"
+                              (click)="deleteIncomeSource(source)"
+                              aria-label="Delete income source"
+                            >
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          </div>
+                        </mat-card-content>
+                      </mat-card>
+                    }
+                  </div>
+                }
+              </mat-card-content>
+            </mat-card>
 
             <!-- Actual & Historical Income Entries -->
-            <section class="section-card">
-              <div class="section-header">
-                <div>
-                  <h2 class="section-title">Actual & Historical Income Entries</h2>
-                  <p class="section-desc">
-                    Log received salary payments or historical notes. Actual records increase wealth until confirmed in account balances (spec §6.3 / §17).
-                  </p>
-                </div>
-                <button mat-flat-button color="primary" (click)="recordIncome()">
-                  <mat-icon>add_card</mat-icon>
-                  Record received income / salary
-                </button>
-              </div>
-
-              @if (sortedIncomeRecords().length === 0) {
-                <app-empty-state
-                  icon="receipt_long"
-                  title="No income records logged"
-                  message="Record your actual received salary or ad-hoc income when paid."
-                >
-                  <button mat-stroked-button color="primary" (click)="recordIncome()">
-                    Record received income
+            <mat-card class="section-card" appearance="outlined">
+              <mat-card-content class="section-card-content">
+                <div class="section-header">
+                  <div>
+                    <h2 class="section-title">Actual & Historical Income Entries</h2>
+                    <p class="section-desc">
+                      Log received salary payments or historical notes. Actual records increase wealth until confirmed in account balances (spec §6.3 / §17).
+                    </p>
+                  </div>
+                  <button mat-flat-button color="primary" (click)="recordIncome()">
+                    <mat-icon>add_card</mat-icon>
+                    Record received income / salary
                   </button>
-                </app-empty-state>
-              } @else {
-                <div class="items-list">
-                  @for (record of sortedIncomeRecords(); track record.id) {
-                    <div class="item-row record-row">
-                      <div class="item-main">
-                        <div class="item-title-row">
-                          <span class="item-name">{{ record.name }}</span>
-
-                          @if (record.isActual && !record.isReflectedInBalances) {
-                            <span class="status-chip chip-pending">
-                              <mat-icon class="chip-icon">bolt</mat-icon>
-                              Actual (adjusts wealth)
-                            </span>
-                          } @else if (record.isActual && record.isReflectedInBalances) {
-                            <span class="status-chip chip-reflected">
-                              <mat-icon class="chip-icon">check_circle</mat-icon>
-                              Reflected in balances
-                            </span>
-                          } @else {
-                            <span class="status-chip chip-expected">
-                              <mat-icon class="chip-icon">info</mat-icon>
-                              Expected note
-                            </span>
-                          }
-
-                          <span class="badge">{{ record.type }}</span>
-                        </div>
-
-                        <div class="item-meta">
-                          <span class="item-amount positive-val">
-                            +{{ record.amount | money:record.currency }}
-                          </span>
-                          <span class="item-meta-detail">Received: {{ record.receivedDate }}</span>
-                          @if (record.note) {
-                            <span class="item-note">"{{ record.note }}"</span>
-                          }
-                        </div>
-                      </div>
-
-                      <div class="item-actions">
-                        @if (record.isActual) {
-                          <button
-                            mat-button
-                            class="toggle-reflect-btn"
-                            [class.active-reflect]="record.isReflectedInBalances"
-                            (click)="toggleIncomeRecordReflected(record)"
-                            [matTooltip]="
-                              record.isReflectedInBalances
-                                ? 'Click to unreflect (adjusts wealth again)'
-                                : 'Click to mark reflected once bank balance includes it'
-                            "
-                          >
-                            <mat-icon>{{ record.isReflectedInBalances ? 'undo' : 'done' }}</mat-icon>
-                            {{ record.isReflectedInBalances ? 'Unreflect' : 'Mark reflected' }}
-                          </button>
-                        }
-
-                        <button
-                          mat-icon-button
-                          (click)="editIncomeRecord(record)"
-                          aria-label="Edit income record"
-                        >
-                          <mat-icon>edit</mat-icon>
-                        </button>
-
-                        <button
-                          mat-icon-button
-                          color="warn"
-                          (click)="deleteIncomeRecord(record)"
-                          aria-label="Delete income record"
-                        >
-                          <mat-icon>delete</mat-icon>
-                        </button>
-                      </div>
-                    </div>
-                  }
                 </div>
-              }
-            </section>
+
+                @if (sortedIncomeRecords().length === 0) {
+                  <app-empty-state
+                    icon="receipt_long"
+                    title="No income records logged"
+                    message="Record your actual received salary or ad-hoc income when paid."
+                  >
+                    <button mat-stroked-button color="primary" (click)="recordIncome()">
+                      Record received income
+                    </button>
+                  </app-empty-state>
+                } @else {
+                  <div class="items-list">
+                    @for (record of sortedIncomeRecords(); track record.id) {
+                      <mat-card appearance="outlined" class="item-row record-row">
+                        <mat-card-content class="item-row-content">
+                          <div class="item-main">
+                            <div class="item-title-row">
+                              <span class="item-name">{{ record.name }}</span>
+
+                              <mat-chip-set>
+                                @if (record.isActual && !record.isReflectedInBalances) {
+                                  <mat-chip class="status-chip chip-pending" highlighted>
+                                    <mat-icon matChipAvatar>bolt</mat-icon>
+                                    Actual (adjusts wealth)
+                                  </mat-chip>
+                                } @else if (record.isActual && record.isReflectedInBalances) {
+                                  <mat-chip class="status-chip chip-reflected">
+                                    <mat-icon matChipAvatar>check_circle</mat-icon>
+                                    Reflected in balances
+                                  </mat-chip>
+                                } @else {
+                                  <mat-chip class="status-chip chip-expected">
+                                    <mat-icon matChipAvatar>info</mat-icon>
+                                    Expected note
+                                  </mat-chip>
+                                }
+
+                                <mat-chip class="badge">{{ record.type }}</mat-chip>
+                              </mat-chip-set>
+                            </div>
+
+                            <div class="item-meta">
+                              <span class="item-amount positive-val">
+                                +{{ record.amount | money:record.currency }}
+                              </span>
+                              <span class="item-meta-detail">Received: {{ record.receivedDate }}</span>
+                              @if (record.note) {
+                                <span class="item-note">"{{ record.note }}"</span>
+                              }
+                            </div>
+                          </div>
+
+                          <div class="item-actions">
+                            @if (record.isActual) {
+                              <button
+                                mat-button
+                                class="toggle-reflect-btn"
+                                [class.active-reflect]="record.isReflectedInBalances"
+                                (click)="toggleIncomeRecordReflected(record)"
+                                [matTooltip]="
+                                  record.isReflectedInBalances
+                                    ? 'Click to unreflect (adjusts wealth again)'
+                                    : 'Click to mark reflected once bank balance includes it'
+                                "
+                              >
+                                <mat-icon>{{ record.isReflectedInBalances ? 'undo' : 'done' }}</mat-icon>
+                                {{ record.isReflectedInBalances ? 'Unreflect' : 'Mark reflected' }}
+                              </button>
+                            }
+
+                            <button
+                              mat-icon-button
+                              (click)="editIncomeRecord(record)"
+                              aria-label="Edit income record"
+                            >
+                              <mat-icon>edit</mat-icon>
+                            </button>
+
+                            <button
+                              mat-icon-button
+                              color="warn"
+                              (click)="deleteIncomeRecord(record)"
+                              aria-label="Delete income record"
+                            >
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          </div>
+                        </mat-card-content>
+                      </mat-card>
+                    }
+                  </div>
+                }
+              </mat-card-content>
+            </mat-card>
           </div>
         </mat-tab>
 
@@ -339,316 +370,338 @@ import { SalaryUpdateDialog } from './salary-update-dialog';
         <mat-tab label="Expenses">
           <div class="tab-content">
             <!-- Monthly Comparison Summary Strip -->
-            <section class="section-card comparison-card">
-              <div class="comparison-header">
-                <div>
-                  <h2 class="section-title">Monthly Expense Tracking</h2>
-                  <p class="section-desc">
-                    Compare your actual spending against your baseline projection (spec §7.1, §7.2).
-                  </p>
+            <mat-card class="section-card comparison-card" appearance="outlined">
+              <mat-card-content class="section-card-content">
+                <div class="comparison-header">
+                  <div>
+                    <h2 class="section-title">Monthly Expense Tracking</h2>
+                    <p class="section-desc">
+                      Compare your actual spending against your baseline projection (spec §7.1, §7.2).
+                    </p>
+                  </div>
+
+                  <div class="month-selector">
+                    <button mat-icon-button (click)="prevMonth()" aria-label="Previous month">
+                      <mat-icon>chevron_left</mat-icon>
+                    </button>
+                    <span class="current-month-display">{{ formatMonth(selectedMonth()) }}</span>
+                    <button mat-icon-button (click)="nextMonth()" aria-label="Next month">
+                      <mat-icon>chevron_right</mat-icon>
+                    </button>
+                  </div>
                 </div>
 
-                <div class="month-selector">
-                  <button mat-icon-button (click)="prevMonth()" aria-label="Previous month">
-                    <mat-icon>chevron_left</mat-icon>
-                  </button>
-                  <span class="current-month-display">{{ formatMonth(selectedMonth()) }}</span>
-                  <button mat-icon-button (click)="nextMonth()" aria-label="Next month">
-                    <mat-icon>chevron_right</mat-icon>
-                  </button>
-                </div>
-              </div>
-
-              <div class="comparison-body">
-                <div class="comparison-stat">
-                  <span class="stat-label">Expected baseline</span>
-                  <span class="stat-val">
-                    {{ store.monthlySurplusSummary().monthlyExpenses | money:baseCurrency() }}
-                  </span>
-                </div>
-                <div class="comparison-divider">·</div>
-                <div class="comparison-stat">
-                  <span class="stat-label">Actual recorded this month</span>
-                  <span class="stat-val highlight-val">
-                    {{ actualExpensesInSelectedMonth() | money:baseCurrency() }}
-                  </span>
-                </div>
-                <div class="comparison-divider">·</div>
-                <div class="comparison-message">
-                  @if (actualExpensesInSelectedMonth() > store.monthlySurplusSummary().monthlyExpenses) {
-                    <span class="diff-tag tag-over">
-                      <mat-icon>warning</mat-icon>
-                      Exceeded baseline by {{ (actualExpensesInSelectedMonth() - store.monthlySurplusSummary().monthlyExpenses) | money:baseCurrency() }}
-                    </span>
-                  } @else if (actualExpensesInSelectedMonth() > 0) {
-                    <span class="diff-tag tag-under">
-                      <mat-icon>check_circle</mat-icon>
-                      Within baseline
-                    </span>
-                  }
-                  <span class="baseline-future-note">
-                    Baseline for next month remains {{ store.monthlySurplusSummary().monthlyExpenses | money:baseCurrency() }}.
-                  </span>
-                </div>
-              </div>
-            </section>
-
-            <!-- Simple Overall Monthly Baseline vs Categories Card -->
-            <section class="section-card quick-baseline-card">
-              <div class="section-header">
-                <div>
-                  <h2 class="section-title">Simple Overall Monthly Baseline</h2>
-                  <p class="section-desc">
-                    Prefer simplicity over managing categories? Set a single monthly spending baseline here (spec §7.1).
-                  </p>
-                </div>
-              </div>
-
-              <form [formRoot]="baselineForm" class="simple-baseline-form">
-                <div class="baseline-inputs">
-                  <mat-form-field appearance="outline" class="baseline-amount-field">
-                    <mat-label>Overall monthly expense amount</mat-label>
-                    <input
-                      matInput
-                      type="number"
-                      step="0.01"
-                      [formField]="baselineForm.amount"
-                      placeholder="e.g. 6000"
-                    />
-                    <span matTextSuffix>{{ baseCurrency() }}</span>
-                  </mat-form-field>
-
-                  <mat-checkbox [formField]="baselineForm.syncCushion" class="cushion-sync-check">
-                    Sync financial cushion average monthly expenses
-                  </mat-checkbox>
-
-                  <button
-                    mat-flat-button
-                    color="primary"
-                    type="submit"
-                    [disabled]="baselineForm().submitting()"
-                  >
-                    Save overall baseline
-                  </button>
-                </div>
-                <app-field-errors [field]="baselineForm.amount" />
-              </form>
-            </section>
-
-            <!-- Expense Categories Section -->
-            <section class="section-card">
-              <div class="section-header">
-                <div>
-                  <div class="title-with-pill">
-                    <h2 class="section-title">Expense Categories</h2>
-                    <span class="badge badge-sum">
-                      Total: {{ categoriesBaselineTotal() | money:baseCurrency() }} / mo
+                <div class="comparison-body">
+                  <div class="comparison-stat">
+                    <span class="stat-label">Expected baseline</span>
+                    <span class="stat-val">
+                      {{ store.monthlySurplusSummary().monthlyExpenses | money:baseCurrency() }}
                     </span>
                   </div>
-                  <p class="section-desc">
-                    Recurring monthly budgets. Reorder by priority or toggle active status.
-                  </p>
+                  <div class="comparison-divider">·</div>
+                  <div class="comparison-stat">
+                    <span class="stat-label">Actual recorded this month</span>
+                    <span class="stat-val highlight-val">
+                      {{ actualExpensesInSelectedMonth() | money:baseCurrency() }}
+                    </span>
+                  </div>
+                  <div class="comparison-divider">·</div>
+                  <div class="comparison-message">
+                    <mat-chip-set>
+                      @if (actualExpensesInSelectedMonth() > store.monthlySurplusSummary().monthlyExpenses) {
+                        <mat-chip class="diff-tag tag-over">
+                          <mat-icon matChipAvatar>warning</mat-icon>
+                          Exceeded baseline by {{ (actualExpensesInSelectedMonth() - store.monthlySurplusSummary().monthlyExpenses) | money:baseCurrency() }}
+                        </mat-chip>
+                      } @else if (actualExpensesInSelectedMonth() > 0) {
+                        <mat-chip class="diff-tag tag-under" highlighted>
+                          <mat-icon matChipAvatar>check_circle</mat-icon>
+                          Within baseline
+                        </mat-chip>
+                      }
+                    </mat-chip-set>
+                    <span class="baseline-future-note">
+                      Baseline for next month remains {{ store.monthlySurplusSummary().monthlyExpenses | money:baseCurrency() }}.
+                    </span>
+                  </div>
                 </div>
-                <button mat-flat-button color="primary" (click)="addExpenseCategory()">
-                  <mat-icon>add</mat-icon>
-                  Add Category
-                </button>
-              </div>
+              </mat-card-content>
+            </mat-card>
 
-              @if (sortedCategories().length === 0) {
-                <app-empty-state
-                  icon="category"
-                  title="No expense categories configured"
-                  message="Use the quick baseline above, or break your spending down into categories like Rent, Food, Utilities, Subscriptions, and Transport."
-                >
-                  <button mat-stroked-button color="primary" (click)="addExpenseCategory()">
-                    Add Expense Category
-                  </button>
-                </app-empty-state>
-              } @else {
-                <div class="items-list">
-                  @for (cat of sortedCategories(); track cat.id; let idx = $index) {
-                    <div class="item-row" [class.disabled-item]="!cat.isEnabled">
-                      <div class="reorder-controls">
-                        <button
-                          mat-icon-button
-                          [disabled]="idx === 0"
-                          (click)="moveCategoryUp(idx)"
-                          aria-label="Move category up"
-                          matTooltip="Move up"
-                        >
-                          <mat-icon>arrow_upward</mat-icon>
-                        </button>
-                        <button
-                          mat-icon-button
-                          [disabled]="idx === sortedCategories().length - 1"
-                          (click)="moveCategoryDown(idx)"
-                          aria-label="Move category down"
-                          matTooltip="Move down"
-                        >
-                          <mat-icon>arrow_downward</mat-icon>
-                        </button>
-                      </div>
+            <!-- Simple Overall Monthly Baseline vs Categories Card -->
+            <mat-card class="section-card quick-baseline-card" appearance="outlined">
+              <mat-card-content class="section-card-content">
+                <div class="section-header">
+                  <div>
+                    <h2 class="section-title">Simple Overall Monthly Baseline</h2>
+                    <p class="section-desc">
+                      Prefer simplicity over managing categories? Set a single monthly spending baseline here (spec §7.1).
+                    </p>
+                  </div>
+                </div>
 
-                      <div class="item-main">
-                        <div class="item-title-row">
-                          <span class="item-name">{{ cat.name }}</span>
-                          @if (!cat.isEnabled) {
-                            <span class="badge badge-inactive">Excluded from baseline</span>
-                          }
-                        </div>
-                        <div class="item-meta">
-                          <span class="item-amount">
-                            {{ cat.expectedMonthlyAmount | money:cat.currency }} / month
-                          </span>
-                        </div>
-                      </div>
+                <form [formRoot]="baselineForm" class="simple-baseline-form">
+                  <div class="baseline-inputs">
+                    <mat-form-field appearance="outline" class="baseline-amount-field" subscriptSizing="dynamic">
+                      <mat-label>Overall monthly expense amount</mat-label>
+                      <input
+                        matInput
+                        type="number"
+                        step="0.01"
+                        [formField]="baselineForm.amount"
+                        placeholder="e.g. 6000"
+                      />
+                      <span matTextSuffix>{{ baseCurrency() }}</span>
+                      @for (error of baselineForm.amount().errors(); track $index) {
+                        <mat-error>{{ error.message }}</mat-error>
+                      }
+                    </mat-form-field>
 
-                      <div class="item-actions">
-                        <mat-slide-toggle
-                          [checked]="cat.isEnabled"
-                          (change)="toggleExpenseCategory(cat, $event.checked)"
-                          matTooltip="Include or exclude from monthly baseline calculation"
-                        >
-                          {{ cat.isEnabled ? 'Active' : 'Paused' }}
-                        </mat-slide-toggle>
+                    <mat-checkbox [formField]="baselineForm.syncCushion" class="cushion-sync-check">
+                      Sync financial cushion average monthly expenses
+                    </mat-checkbox>
 
-                        <button
-                          mat-icon-button
-                          (click)="editExpenseCategory(cat)"
-                          aria-label="Edit category"
-                        >
-                          <mat-icon>edit</mat-icon>
-                        </button>
+                    <button
+                      mat-flat-button
+                      color="primary"
+                      type="submit"
+                      [disabled]="baselineForm().submitting()"
+                    >
+                      Save overall baseline
+                    </button>
+                  </div>
+                </form>
+              </mat-card-content>
+            </mat-card>
 
-                        <button
-                          mat-icon-button
-                          color="warn"
-                          (click)="deleteExpenseCategory(cat)"
-                          aria-label="Delete category"
-                        >
-                          <mat-icon>delete</mat-icon>
-                        </button>
-                      </div>
+            <!-- Expense Categories Section -->
+            <mat-card class="section-card" appearance="outlined">
+              <mat-card-content class="section-card-content">
+                <div class="section-header">
+                  <div>
+                    <div class="title-with-pill">
+                      <h2 class="section-title">Expense Categories</h2>
+                      <mat-chip-set>
+                        <mat-chip class="badge badge-sum">
+                          Total: {{ categoriesBaselineTotal() | money:baseCurrency() }} / mo
+                        </mat-chip>
+                      </mat-chip-set>
                     </div>
-                  }
+                    <p class="section-desc">
+                      Recurring monthly budgets. Reorder by priority or toggle active status.
+                    </p>
+                  </div>
+                  <button mat-flat-button color="primary" (click)="addExpenseCategory()">
+                    <mat-icon>add</mat-icon>
+                    Add Category
+                  </button>
                 </div>
-              }
-            </section>
+
+                @if (sortedCategories().length === 0) {
+                  <app-empty-state
+                    icon="category"
+                    title="No expense categories configured"
+                    message="Use the quick baseline above, or break your spending down into categories like Rent, Food, Utilities, Subscriptions, and Transport."
+                  >
+                    <button mat-stroked-button color="primary" (click)="addExpenseCategory()">
+                      Add Expense Category
+                    </button>
+                  </app-empty-state>
+                } @else {
+                  <div class="items-list">
+                    @for (cat of sortedCategories(); track cat.id; let idx = $index) {
+                      <mat-card appearance="outlined" class="item-row" [class.disabled-item]="!cat.isEnabled">
+                        <mat-card-content class="item-row-content">
+                          <div class="reorder-controls">
+                            <button
+                              mat-icon-button
+                              [disabled]="idx === 0"
+                              (click)="moveCategoryUp(idx)"
+                              aria-label="Move category up"
+                              matTooltip="Move up"
+                            >
+                              <mat-icon>arrow_upward</mat-icon>
+                            </button>
+                            <button
+                              mat-icon-button
+                              [disabled]="idx === sortedCategories().length - 1"
+                              (click)="moveCategoryDown(idx)"
+                              aria-label="Move category down"
+                              matTooltip="Move down"
+                            >
+                              <mat-icon>arrow_downward</mat-icon>
+                            </button>
+                          </div>
+
+                          <div class="item-main">
+                            <div class="item-title-row">
+                              <span class="item-name">{{ cat.name }}</span>
+                              @if (!cat.isEnabled) {
+                                <mat-chip-set>
+                                  <mat-chip class="badge badge-inactive">Excluded from baseline</mat-chip>
+                                </mat-chip-set>
+                              }
+                            </div>
+                            <div class="item-meta">
+                              <span class="item-amount">
+                                {{ cat.expectedMonthlyAmount | money:cat.currency }} / month
+                              </span>
+                            </div>
+                          </div>
+
+                          <div class="item-actions">
+                            <mat-slide-toggle
+                              [checked]="cat.isEnabled"
+                              (change)="toggleExpenseCategory(cat, $event.checked)"
+                              matTooltip="Include or exclude from monthly baseline calculation"
+                            >
+                              {{ cat.isEnabled ? 'Active' : 'Paused' }}
+                            </mat-slide-toggle>
+
+                            <button
+                              mat-icon-button
+                              (click)="editExpenseCategory(cat)"
+                              aria-label="Edit category"
+                            >
+                              <mat-icon>edit</mat-icon>
+                            </button>
+
+                            <button
+                              mat-icon-button
+                              color="warn"
+                              (click)="deleteExpenseCategory(cat)"
+                              aria-label="Delete category"
+                            >
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          </div>
+                        </mat-card-content>
+                      </mat-card>
+                    }
+                  </div>
+                }
+              </mat-card-content>
+            </mat-card>
 
             <!-- Record Actual Expenses (Individual or Monthly Total) -->
-            <section class="section-card">
-              <div class="section-header">
-                <div>
-                  <h2 class="section-title">Recorded Expenses</h2>
-                  <p class="section-desc">
-                    Log actual expenses or monthly totals. Unreflected expenses immediately reduce current wealth to prevent double counting (spec §7.2 / §17).
-                  </p>
+            <mat-card class="section-card" appearance="outlined">
+              <mat-card-content class="section-card-content">
+                <div class="section-header">
+                  <div>
+                    <h2 class="section-title">Recorded Expenses</h2>
+                    <p class="section-desc">
+                      Log actual expenses or monthly totals. Unreflected expenses immediately reduce current wealth to prevent double counting (spec §7.2 / §17).
+                    </p>
+                  </div>
+                  <div class="action-buttons-group">
+                    <button mat-stroked-button (click)="recordExpense('monthly_total')">
+                      <mat-icon>calendar_view_month</mat-icon>
+                      Log monthly total
+                    </button>
+                    <button mat-flat-button color="primary" (click)="recordExpense('individual')">
+                      <mat-icon>receipt</mat-icon>
+                      Record expense
+                    </button>
+                  </div>
                 </div>
-                <div class="action-buttons-group">
-                  <button mat-stroked-button (click)="recordExpense('monthly_total')">
-                    <mat-icon>calendar_view_month</mat-icon>
-                    Log monthly total
-                  </button>
-                  <button mat-flat-button color="primary" (click)="recordExpense('individual')">
-                    <mat-icon>receipt</mat-icon>
-                    Record expense
-                  </button>
-                </div>
-              </div>
 
-              @if (sortedExpenseRecords().length === 0) {
-                <app-empty-state
-                  icon="receipt"
-                  title="No expenses logged yet"
-                  message="Record individual expenses or a single monthly total when reviewing your monthly finances."
-                >
-                  <button mat-stroked-button color="primary" (click)="recordExpense('individual')">
-                    Record expense
-                  </button>
-                </app-empty-state>
-              } @else {
-                <div class="items-list">
-                  @for (record of sortedExpenseRecords(); track record.id) {
-                    <div class="item-row record-row">
-                      <div class="item-main">
-                        <div class="item-title-row">
-                          <span class="item-name">{{ record.categoryName }}</span>
+                @if (sortedExpenseRecords().length === 0) {
+                  <app-empty-state
+                    icon="receipt"
+                    title="No expenses logged yet"
+                    message="Record individual expenses or a single monthly total when reviewing your monthly finances."
+                  >
+                    <button mat-stroked-button color="primary" (click)="recordExpense('individual')">
+                      Record expense
+                    </button>
+                  </app-empty-state>
+                } @else {
+                  <div class="items-list">
+                    @for (record of sortedExpenseRecords(); track record.id) {
+                      <mat-card appearance="outlined" class="item-row record-row">
+                        <mat-card-content class="item-row-content">
+                          <div class="item-main">
+                            <div class="item-title-row">
+                              <span class="item-name">{{ record.categoryName }}</span>
 
-                          @if (record.goalId) {
-                            <span class="status-chip chip-goal">
-                              <mat-icon class="chip-icon">stars</mat-icon>
-                              Goal spend
-                            </span>
-                          } @else if (record.isReflectedInBalances) {
-                            <span class="status-chip chip-reflected">
-                              <mat-icon class="chip-icon">check_circle</mat-icon>
-                              Reflected in asset balance
-                            </span>
-                          } @else if (record.isActual) {
-                            <span class="status-chip chip-pending-expense">
-                              <mat-icon class="chip-icon">trending_down</mat-icon>
-                              Deducted from wealth
-                            </span>
-                          } @else {
-                            <span class="status-chip chip-expected">
-                              <mat-icon class="chip-icon">info</mat-icon>
-                              Expected
-                            </span>
-                          }
-                        </div>
+                              <mat-chip-set>
+                                @if (record.goalId) {
+                                  <mat-chip class="status-chip chip-goal">
+                                    <mat-icon matChipAvatar>stars</mat-icon>
+                                    Goal spend
+                                  </mat-chip>
+                                } @else if (record.isReflectedInBalances) {
+                                  <mat-chip class="status-chip chip-reflected">
+                                    <mat-icon matChipAvatar>check_circle</mat-icon>
+                                    Reflected in asset balance
+                                  </mat-chip>
+                                } @else if (record.isActual) {
+                                  <mat-chip class="status-chip chip-pending-expense" highlighted>
+                                    <mat-icon matChipAvatar>trending_down</mat-icon>
+                                    Deducted from wealth
+                                  </mat-chip>
+                                } @else {
+                                  <mat-chip class="status-chip chip-expected">
+                                    <mat-icon matChipAvatar>info</mat-icon>
+                                    Expected
+                                  </mat-chip>
+                                }
+                              </mat-chip-set>
+                            </div>
 
-                        <div class="item-meta">
-                          <span class="item-amount negative-val">
-                            -{{ record.amount | money:record.currency }}
-                          </span>
-                          <span class="item-meta-detail">Date: {{ record.date }}</span>
-                          @if (record.note) {
-                            <span class="item-note">"{{ record.note }}"</span>
-                          }
-                        </div>
-                      </div>
+                            <div class="item-meta">
+                              <span class="item-amount negative-val">
+                                -{{ record.amount | money:record.currency }}
+                              </span>
+                              <span class="item-meta-detail">Date: {{ record.date }}</span>
+                              @if (record.note) {
+                                <span class="item-note">"{{ record.note }}"</span>
+                              }
+                            </div>
+                          </div>
 
-                      <div class="item-actions">
-                        @if (record.isActual && !record.goalId) {
-                          <button
-                            mat-button
-                            class="toggle-reflect-btn"
-                            [class.active-reflect]="record.isReflectedInBalances"
-                            (click)="toggleExpenseRecordReflected(record)"
-                            [matTooltip]="
-                              record.isReflectedInBalances
-                                ? 'Click to unreflect (deducts from wealth again)'
-                                : 'Click to mark reflected once bank balance includes it'
-                            "
-                          >
-                            <mat-icon>{{ record.isReflectedInBalances ? 'undo' : 'done' }}</mat-icon>
-                            {{ record.isReflectedInBalances ? 'Unreflect' : 'Mark reflected' }}
-                          </button>
-                        }
+                          <div class="item-actions">
+                            @if (record.isActual && !record.goalId) {
+                              <button
+                                mat-button
+                                class="toggle-reflect-btn"
+                                [class.active-reflect]="record.isReflectedInBalances"
+                                (click)="toggleExpenseRecordReflected(record)"
+                                [matTooltip]="
+                                  record.isReflectedInBalances
+                                    ? 'Click to unreflect (deducts from wealth again)'
+                                    : 'Click to mark reflected once bank balance includes it'
+                                "
+                              >
+                                <mat-icon>{{ record.isReflectedInBalances ? 'undo' : 'done' }}</mat-icon>
+                                {{ record.isReflectedInBalances ? 'Unreflect' : 'Mark reflected' }}
+                              </button>
+                            }
 
-                        <button
-                          mat-icon-button
-                          (click)="editExpenseRecord(record)"
-                          aria-label="Edit expense record"
-                        >
-                          <mat-icon>edit</mat-icon>
-                        </button>
+                            <button
+                              mat-icon-button
+                              (click)="editExpenseRecord(record)"
+                              aria-label="Edit expense record"
+                            >
+                              <mat-icon>edit</mat-icon>
+                            </button>
 
-                        <button
-                          mat-icon-button
-                          color="warn"
-                          (click)="deleteExpenseRecord(record)"
-                          aria-label="Delete expense record"
-                        >
-                          <mat-icon>delete</mat-icon>
-                        </button>
-                      </div>
-                    </div>
-                  }
-                </div>
-              }
-            </section>
+                            <button
+                              mat-icon-button
+                              color="warn"
+                              (click)="deleteExpenseRecord(record)"
+                              aria-label="Delete expense record"
+                            >
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          </div>
+                        </mat-card-content>
+                      </mat-card>
+                    }
+                  </div>
+                }
+              </mat-card-content>
+            </mat-card>
           </div>
         </mat-tab>
       </mat-tab-group>
@@ -693,15 +746,16 @@ import { SalaryUpdateDialog } from './salary-update-dialog';
 
     /* Pending Alert Banner */
     .pending-alert-banner {
+      border-radius: 12px;
+      background-color: var(--mat-sys-surface-container-high);
+      border-left: 4px solid var(--mat-sys-primary);
+    }
+
+    .pending-alert-layout {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 1rem;
-      padding: 0.875rem 1.25rem;
-      border-radius: 12px;
-      background-color: var(--mat-sys-surface-container-high);
-      border-left: 4px solid var(--mat-sys-primary);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 
       @media (max-width: 768px) {
         flex-direction: column;
@@ -743,9 +797,10 @@ import { SalaryUpdateDialog } from './salary-update-dialog';
     /* Section Cards */
     .section-card {
       background-color: var(--mat-sys-surface-container-lowest, var(--mat-sys-surface));
-      border: 1px solid var(--mat-sys-outline-variant);
       border-radius: 16px;
-      padding: 1.25rem 1.5rem;
+    }
+
+    .section-card-content {
       display: flex;
       flex-direction: column;
       gap: 1.25rem;
@@ -794,14 +849,8 @@ import { SalaryUpdateDialog } from './salary-update-dialog';
     }
 
     .item-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
-      padding: 0.875rem 1rem;
       border-radius: 10px;
       background-color: var(--mat-sys-surface-container-low);
-      border: 1px solid var(--mat-sys-outline-variant);
       transition: background-color 0.15s ease;
 
       &:hover {
@@ -811,6 +860,13 @@ import { SalaryUpdateDialog } from './salary-update-dialog';
       &.disabled-item {
         opacity: 0.65;
       }
+    }
+
+    .item-row-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
 
       @media (max-width: 768px) {
         flex-direction: column;

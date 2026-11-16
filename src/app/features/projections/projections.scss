@@ -216,15 +216,17 @@
 }
 
 .simulation-impact-banner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 10px;
   background-color: var(--mat-sys-tertiary-container);
   color: var(--mat-sys-on-tertiary-container);
   margin-top: 14px;
-  font-size: 0.875rem;
+  border-color: var(--mat-sys-tertiary);
+
+  .impact-banner-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.875rem;
+  }
 
   mat-icon {
     flex-shrink: 0;

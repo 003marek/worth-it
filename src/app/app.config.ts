@@ -12,6 +12,7 @@ import {
   withComponentInputBinding,
   withViewTransitions,
 } from '@angular/router';
+import { MAT_DIALOG_DEFAULT_OPTIONS } from '@angular/material/dialog';
 import { provideServiceWorker } from '@angular/service-worker';
 import { routes } from './app.routes';
 import { WorthItStore } from './core/stores/worth-it.store';
@@ -30,6 +31,13 @@ export const appConfig: ApplicationConfig = {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',
     }),
+    {
+      provide: MAT_DIALOG_DEFAULT_OPTIONS,
+      useValue: {
+        hasBackdrop: true,
+        backdropClass: ['cdk-overlay-dark-backdrop', 'blur-backdrop'],
+      },
+    },
     PageTitleStrategy,
     { provide: TitleStrategy, useExisting: PageTitleStrategy },
     provideAppInitializer(async () => {

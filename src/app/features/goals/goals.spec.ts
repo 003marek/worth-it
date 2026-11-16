@@ -62,7 +62,7 @@ describe('Goals Component & Flow', () => {
 
     it('renders top summary strip tiles', () => {
       const compiled = fixture.nativeElement as HTMLElement;
-      const tiles = compiled.querySelectorAll('app-metric-tile');
+      const tiles = compiled.querySelectorAll('.metric-card');
       expect(tiles.length).toBe(3);
       expect(compiled.textContent).toContain('Available for goals');
       expect(compiled.textContent).toContain('Financial cushion');

@@ -1,13 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { form, FormField, FormRoot, min, required } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { StockSale } from '../../core/models/worth-it.model';
-import { FieldErrors } from '../../shared/components/field-errors/field-errors';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 
 export interface StockSaleDialogData {
@@ -42,6 +42,7 @@ export interface StockSaleDialogResult {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     MatDialogModule,
+    MatCardModule,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
@@ -49,7 +50,6 @@ export interface StockSaleDialogResult {
     MatIconModule,
     FormRoot,
     FormField,
-    FieldErrors,
     MoneyPipe,
   ],
   template: `
@@ -67,16 +67,20 @@ export interface StockSaleDialogResult {
               [formField]="saleForm.companyOrTicker"
               placeholder="e.g. AAPL / Apple Inc."
             />
+            @for (error of saleForm.companyOrTicker().errors(); track $index) {
+              <mat-error>{{ error.message }}</mat-error>
+            }
           </mat-form-field>
-          <app-field-errors [field]="saleForm.companyOrTicker" />
 
           <div class="two-col">
             <div>
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Sale Date</mat-label>
                 <input matInput type="date" [formField]="saleForm.saleDate" />
+                @for (error of saleForm.saleDate().errors(); track $index) {
+                  <mat-error>{{ error.message }}</mat-error>
+                }
               </mat-form-field>
-              <app-field-errors [field]="saleForm.saleDate" />
             </div>
 
             <div>
@@ -89,8 +93,10 @@ export interface StockSaleDialogResult {
                   <mat-option value="GBP">GBP (£)</mat-option>
                   <mat-option value="CHF">CHF</mat-option>
                 </mat-select>
+                @for (error of saleForm.currency().errors(); track $index) {
+                  <mat-error>{{ error.message }}</mat-error>
+                }
               </mat-form-field>
-              <app-field-errors [field]="saleForm.currency" />
             </div>
           </div>
 
@@ -105,8 +111,10 @@ export interface StockSaleDialogResult {
                   [formField]="saleForm.sharesSold"
                   placeholder="0.00"
                 />
+                @for (error of saleForm.sharesSold().errors(); track $index) {
+                  <mat-error>{{ error.message }}</mat-error>
+                }
               </mat-form-field>
-              <app-field-errors [field]="saleForm.sharesSold" />
             </div>
 
             <div>
@@ -120,29 +128,33 @@ export interface StockSaleDialogResult {
                   placeholder="0.00"
                 />
                 <span matTextSuffix>{{ model().currency }}</span>
+                @for (error of saleForm.pricePerShare().errors(); track $index) {
+                  <mat-error>{{ error.message }}</mat-error>
+                }
               </mat-form-field>
-              <app-field-errors [field]="saleForm.pricePerShare" />
             </div>
           </div>
 
           <!-- Live Computed Gross Value Preview -->
-          <div class="preview-card">
-            <div class="preview-row">
-              <span class="preview-label">Calculated Gross Value:</span>
-              <strong class="preview-value">
-                {{ calculatedGrossValue() | money:model().currency:2 }}
-              </strong>
-            </div>
-
-            @if (model().currency !== 'PLN') {
-              <div class="preview-row pln-preview">
-                <span class="preview-label">PLN Equivalent:</span>
-                <span class="preview-subvalue">
-                  {{ livePlnDisplay() !== null ? (livePlnDisplay() | money:'PLN':2) : 'Not specified' }}
-                </span>
+          <mat-card appearance="outlined" class="preview-card">
+            <mat-card-content class="preview-content">
+              <div class="preview-row">
+                <span class="preview-label">Calculated Gross Value:</span>
+                <strong class="preview-value">
+                  {{ calculatedGrossValue() | money:model().currency:2 }}
+                </strong>
               </div>
-            }
-          </div>
+
+              @if (model().currency !== 'PLN') {
+                <div class="preview-row pln-preview">
+                  <span class="preview-label">PLN Equivalent:</span>
+                  <span class="preview-subvalue">
+                    {{ livePlnDisplay() !== null ? (livePlnDisplay() | money:'PLN':2) : 'Not specified' }}
+                  </span>
+                </div>
+              }
+            </mat-card-content>
+          </mat-card>
 
           @if (model().currency !== 'PLN') {
             <div class="two-col">
@@ -157,8 +169,10 @@ export interface StockSaleDialogResult {
                     placeholder="e.g. 4.05"
                   />
                   <mat-hint>1 {{ model().currency }} = X PLN</mat-hint>
+                  @for (error of saleForm.exchangeRateToPln().errors(); track $index) {
+                    <mat-error>{{ error.message }}</mat-error>
+                  }
                 </mat-form-field>
-                <app-field-errors [field]="saleForm.exchangeRateToPln" />
               </div>
 
               <div>
@@ -173,8 +187,10 @@ export interface StockSaleDialogResult {
                   />
                   <span matTextSuffix>PLN</span>
                   <mat-hint>Override or direct bank payout</mat-hint>
+                  @for (error of saleForm.plnEquivalent().errors(); track $index) {
+                    <mat-error>{{ error.message }}</mat-error>
+                  }
                 </mat-form-field>
-                <app-field-errors [field]="saleForm.plnEquivalent" />
               </div>
             </div>
           }
@@ -187,15 +203,19 @@ export interface StockSaleDialogResult {
               [formField]="saleForm.notes"
               placeholder="e.g. Q1 RSU tranche, brokerage fees paid separately"
             ></textarea>
+            @for (error of saleForm.notes().errors(); track $index) {
+              <mat-error>{{ error.message }}</mat-error>
+            }
           </mat-form-field>
-          <app-field-errors [field]="saleForm.notes" />
 
-          <div class="dialog-footer-notice">
-            <mat-icon class="notice-icon">info</mat-icon>
-            <span>
-              No tax or brokerage fee fields are needed — enter taxes/fees as regular expenses if applicable.
-            </span>
-          </div>
+          <mat-card appearance="outlined" class="dialog-footer-notice">
+            <mat-card-content class="notice-content">
+              <mat-icon class="notice-icon">info</mat-icon>
+              <span>
+                No tax or brokerage fee fields are needed — enter taxes/fees as regular expenses if applicable.
+              </span>
+            </mat-card-content>
+          </mat-card>
         </div>
       </mat-dialog-content>
 
@@ -237,9 +257,9 @@ export interface StockSaleDialogResult {
       }
       .preview-card {
         background-color: var(--mat-sys-surface-container);
-        border-radius: 8px;
-        padding: 12px 16px;
         margin: 4px 0 10px;
+      }
+      .preview-content {
         display: flex;
         flex-direction: column;
         gap: 4px;
@@ -262,13 +282,13 @@ export interface StockSaleDialogResult {
         color: var(--mat-sys-primary);
       }
       .dialog-footer-notice {
+        background-color: var(--mat-sys-surface-container-low);
+        border-left: 3px solid var(--mat-sys-primary);
+      }
+      .notice-content {
         display: flex;
         align-items: flex-start;
         gap: 8px;
-        background-color: var(--mat-sys-surface-container-low);
-        border-left: 3px solid var(--mat-sys-primary);
-        padding: 8px 12px;
-        border-radius: 4px;
         font-size: 0.8125rem;
         color: var(--mat-sys-on-surface-variant);
         line-height: 1.4;

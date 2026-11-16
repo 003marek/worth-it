@@ -15,135 +15,152 @@
 
   <!-- Top Summary Metrics -->
   <section class="metrics-grid" aria-label="Wealth summary metrics">
-    <app-metric-tile
-      label="Total Wealth"
-      [value]="wealthSummary().totalWealth"
-      [hint]="totalWealthHint()"
-      icon="account_balance"
-      tone="default"
-    />
-    <app-metric-tile
-      label="Goal-Eligible Wealth"
-      [value]="wealthSummary().goalEligibleWealth"
-      hint="Active in financial goal calculations"
-      icon="savings"
-      tone="positive"
-    />
-    <app-metric-tile
-      label="Excluded Wealth"
-      [value]="wealthSummary().excludedWealth"
-      hint="Toggled off from financial goals"
-      icon="visibility_off"
-      tone="default"
-    />
-    <app-metric-tile
-      label="Available for Goals"
-      [value]="wealthSummary().availableForGoals"
-      hint="After cushion &amp; reserved goal funds"
-      icon="flag"
-      tone="positive"
-    />
+    <mat-card class="metric-card" appearance="outlined">
+      <mat-card-content class="metric-content">
+        <div class="metric-header">
+          <span class="metric-label">Total Wealth</span>
+          <mat-icon class="metric-icon" aria-hidden="true">account_balance</mat-icon>
+        </div>
+        <div class="metric-value">
+          {{ wealthSummary().totalWealth | money }}
+        </div>
+        @if (totalWealthHint()) {
+          <div class="metric-hint">{{ totalWealthHint() }}</div>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="metric-card" appearance="outlined">
+      <mat-card-content class="metric-content">
+        <div class="metric-header">
+          <span class="metric-label">Goal-Eligible Wealth</span>
+          <mat-icon class="metric-icon" aria-hidden="true">savings</mat-icon>
+        </div>
+        <div class="metric-value positive">
+          {{ wealthSummary().goalEligibleWealth | money }}
+        </div>
+        <div class="metric-hint">Active in financial goal calculations</div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="metric-card" appearance="outlined">
+      <mat-card-content class="metric-content">
+        <div class="metric-header">
+          <span class="metric-label">Excluded Wealth</span>
+          <mat-icon class="metric-icon" aria-hidden="true">visibility_off</mat-icon>
+        </div>
+        <div class="metric-value">
+          {{ wealthSummary().excludedWealth | money }}
+        </div>
+        <div class="metric-hint">Toggled off from financial goals</div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="metric-card" appearance="outlined">
+      <mat-card-content class="metric-content">
+        <div class="metric-header">
+          <span class="metric-label">Available for Goals</span>
+          <mat-icon class="metric-icon" aria-hidden="true">flag</mat-icon>
+        </div>
+        <div class="metric-value positive">
+          {{ wealthSummary().availableForGoals | money }}
+        </div>
+        <div class="metric-hint">After cushion &amp; reserved goal funds</div>
+      </mat-card-content>
+    </mat-card>
   </section>
 
   <!-- Pending Accounting Adjustments Banner -->
   @if (wealthSummary().pendingAdjustments !== 0) {
-    <section class="pending-adjustments-banner" role="status">
-      <div class="banner-body">
-        <mat-icon class="banner-icon">info</mat-icon>
-        <div class="banner-copy">
-          <strong>Accounting adjustment:</strong>
-          Unreflected actual income/expenses are currently adjusting wealth by
-          <span
-            class="adj-pill"
-            [class.positive]="wealthSummary().pendingAdjustments > 0"
-            [class.negative]="wealthSummary().pendingAdjustments < 0"
-          >
-            {{ wealthSummary().pendingAdjustments > 0 ? '+' : '' }}{{ wealthSummary().pendingAdjustments | money }}
-          </span>.
-          After updating your balances, mark all records as reflected so they aren't counted twice.
+    <mat-card class="pending-adjustments-banner" appearance="outlined" role="status">
+      <mat-card-content class="banner-layout">
+        <div class="banner-body">
+          <mat-icon class="banner-icon">info</mat-icon>
+          <div class="banner-copy">
+            <strong>Accounting adjustment:</strong>
+            Unreflected actual income/expenses are currently adjusting wealth by
+            <span
+              class="adj-pill"
+              [class.positive]="wealthSummary().pendingAdjustments > 0"
+              [class.negative]="wealthSummary().pendingAdjustments < 0"
+            >
+              {{ wealthSummary().pendingAdjustments > 0 ? '+' : '' }}{{ wealthSummary().pendingAdjustments | money }}
+            </span>.
+            After updating your balances, mark all records as reflected so they aren't counted twice.
+          </div>
         </div>
-      </div>
-      <button
-        mat-flat-button
-        color="primary"
-        (click)="onMarkAllReflected()"
-        class="banner-action-btn"
-      >
-        <mat-icon>done_all</mat-icon>
-        <span>Mark all reflected in current balances</span>
-      </button>
-    </section>
+        <button
+          mat-flat-button
+          color="primary"
+          (click)="onMarkAllReflected()"
+          class="banner-action-btn"
+        >
+          <mat-icon>done_all</mat-icon>
+          <span>Mark all reflected in current balances</span>
+        </button>
+      </mat-card-content>
+    </mat-card>
   }
 
   <!-- Asset Type Breakdown & Share Bar -->
   @if (typeBreakdown().length > 0) {
-    <section class="breakdown-card">
-      <div class="breakdown-header">
-        <h2 class="breakdown-title">Asset Allocation</h2>
-        <span class="breakdown-total">
+    <mat-card class="breakdown-card" appearance="outlined">
+      <mat-card-header class="breakdown-header">
+        <mat-card-title class="breakdown-title">Asset Allocation</mat-card-title>
+        <mat-card-subtitle class="breakdown-total">
           Recorded total: <strong>{{ wealthSummary().recordedAssetsTotal | money }}</strong>
-        </span>
-      </div>
+        </mat-card-subtitle>
+      </mat-card-header>
 
-      <!-- Segmented allocation bar -->
-      <div class="breakdown-bar" aria-label="Asset allocation bar">
-        @for (item of typeBreakdown(); track item.type) {
-          <div
-            class="breakdown-bar-segment segment-{{ item.type }}"
-            [style.width.%]="item.percentage"
-            [matTooltip]="item.label + ': ' + item.percentage + '% (' + (item.totalInBase | money) + ')'"
-          ></div>
-        }
-      </div>
+      <mat-card-content class="breakdown-content">
+        <!-- Segmented allocation bar -->
+        <div class="breakdown-bar" aria-label="Asset allocation bar">
+          @for (item of typeBreakdown(); track item.type) {
+            <div
+              class="breakdown-bar-segment segment-{{ item.type }}"
+              [style.width.%]="item.percentage"
+              [matTooltip]="item.label + ': ' + item.percentage + '% (' + (item.totalInBase | money) + ')'"
+            ></div>
+          }
+        </div>
 
-      <!-- Allocation breakdown chips -->
-      <div class="breakdown-chips-row">
-        @for (item of typeBreakdown(); track item.type) {
-          <button
-            type="button"
-            class="breakdown-chip"
-            [class.active]="selectedTypeFilter() === item.type"
-            (click)="toggleTypeFilter(item.type)"
-          >
-            <mat-icon class="chip-icon">{{ item.icon }}</mat-icon>
-            <span class="chip-name">{{ item.label }}</span>
-            <span class="chip-amount">{{ item.totalInBase | money }}</span>
-            <span class="chip-pct">{{ item.percentage }}%</span>
-          </button>
-        }
-      </div>
-    </section>
+        <!-- Allocation breakdown Material chips -->
+        <mat-chip-listbox aria-label="Filter by asset type" class="breakdown-chips-row">
+          @for (item of typeBreakdown(); track item.type) {
+            <mat-chip-option
+              [selected]="selectedTypeFilter() === item.type"
+              (click)="toggleTypeFilter(item.type)"
+              class="breakdown-chip"
+            >
+              <mat-icon matChipAvatar>{{ item.icon }}</mat-icon>
+              <span class="chip-name">{{ item.label }}</span>
+              <span class="chip-amount">{{ item.totalInBase | money }}</span>
+              <span class="chip-pct">({{ item.percentage }}%)</span>
+            </mat-chip-option>
+          }
+        </mat-chip-listbox>
+      </mat-card-content>
+    </mat-card>
   }
 
   <!-- Filter Bar -->
   @if (store.assets().length > 0) {
     <section class="filter-controls-row">
-      <div class="filter-pills" role="tablist" aria-label="Goal eligibility filter">
-        <button
-          type="button"
-          class="filter-pill"
-          [class.active]="goalFilter() === 'all'"
-          (click)="setGoalFilter('all')"
-        >
+      <mat-button-toggle-group
+        [value]="goalFilter()"
+        (change)="setGoalFilter($event.value)"
+        aria-label="Goal eligibility filter"
+      >
+        <mat-button-toggle value="all">
           All ({{ store.assets().length }})
-        </button>
-        <button
-          type="button"
-          class="filter-pill"
-          [class.active]="goalFilter() === 'goal_eligible'"
-          (click)="setGoalFilter('goal_eligible')"
-        >
+        </mat-button-toggle>
+        <mat-button-toggle value="goal_eligible">
           Goal-eligible only
-        </button>
-        <button
-          type="button"
-          class="filter-pill"
-          [class.active]="goalFilter() === 'excluded'"
-          (click)="setGoalFilter('excluded')"
-        >
+        </mat-button-toggle>
+        <mat-button-toggle value="excluded">
           Excluded only
-        </button>
-      </div>
+        </mat-button-toggle>
+      </mat-button-toggle-group>
 
       @if (selectedTypeFilter()) {
         <button mat-button class="clear-type-filter-btn" (click)="clearTypeFilter()">
@@ -158,19 +175,16 @@
   @if (store.assets().length > 0) {
     <section class="assets-grid" aria-label="Asset cards list">
       @for (asset of filteredAssets(); track asset.id) {
-        <mat-card class="asset-card" [class.excluded-asset]="!asset.isGoalEligible">
+        <mat-card class="asset-card" appearance="outlined" [class.excluded-asset]="!asset.isGoalEligible">
           <!-- Card Header -->
           <mat-card-header class="card-header">
-            <div class="header-left">
-              <div class="type-badge" [class]="'type-' + asset.type">
-                <mat-icon>{{ getTypeInfo(asset.type).icon }}</mat-icon>
-              </div>
-              <div class="name-block">
-                <h3 class="asset-name">{{ asset.name }}</h3>
-                <span class="type-name">{{ getTypeInfo(asset.type).label }}</span>
-              </div>
+            <div mat-card-avatar class="type-badge" [class]="'type-' + asset.type">
+              <mat-icon>{{ getTypeInfo(asset.type).icon }}</mat-icon>
             </div>
+            <mat-card-title class="asset-name">{{ asset.name }}</mat-card-title>
+            <mat-card-subtitle class="type-name">{{ getTypeInfo(asset.type).label }}</mat-card-subtitle>
 
+            <span class="spacer"></span>
             <button
               mat-icon-button
               [matMenuTriggerFor]="menu"
@@ -229,6 +243,8 @@
               </span>
             </div>
           </mat-card-content>
+
+          <mat-divider></mat-divider>
 
           <!-- Card Actions -->
           <mat-card-actions class="card-actions">

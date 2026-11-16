@@ -7,7 +7,6 @@ import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { Asset, AssetType } from '../../core/models/worth-it.model';
-import { FieldErrors } from '../../shared/components/field-errors/field-errors';
 
 export interface AssetFormValue {
   name: string;
@@ -53,7 +52,6 @@ export const CURRENCY_OPTIONS = ['PLN', 'EUR', 'USD', 'GBP', 'CHF'] as const;
     MatButtonModule,
     FormRoot,
     FormField,
-    FieldErrors,
   ],
   template: `
     <h2 mat-dialog-title>{{ data.asset ? 'Edit asset' : 'New asset' }}</h2>
@@ -62,8 +60,10 @@ export const CURRENCY_OPTIONS = ['PLN', 'EUR', 'USD', 'GBP', 'CHF'] as const;
         <mat-form-field appearance="outline">
           <mat-label>Asset name</mat-label>
           <input matInput [formField]="assetForm.name" placeholder="e.g. Main checking account" />
+          @for (error of assetForm.name().errors(); track $index) {
+            <mat-error>{{ error.message }}</mat-error>
+          }
         </mat-form-field>
-        <app-field-errors [field]="assetForm.name" />
 
         <mat-form-field appearance="outline">
           <mat-label>Asset type</mat-label>
@@ -72,8 +72,10 @@ export const CURRENCY_OPTIONS = ['PLN', 'EUR', 'USD', 'GBP', 'CHF'] as const;
               <mat-option [value]="option.value">{{ option.label }}</mat-option>
             }
           </mat-select>
+          @for (error of assetForm.type().errors(); track $index) {
+            <mat-error>{{ error.message }}</mat-error>
+          }
         </mat-form-field>
-        <app-field-errors [field]="assetForm.type" />
 
         <div class="row-two-col">
           <div class="col">
@@ -81,8 +83,10 @@ export const CURRENCY_OPTIONS = ['PLN', 'EUR', 'USD', 'GBP', 'CHF'] as const;
               <mat-label>Balance</mat-label>
               <input matInput type="number" step="any" [formField]="assetForm.balance" />
               <span matTextSuffix>{{ assetForm.currency().value() }}</span>
+              @for (error of assetForm.balance().errors(); track $index) {
+                <mat-error>{{ error.message }}</mat-error>
+              }
             </mat-form-field>
-            <app-field-errors [field]="assetForm.balance" />
           </div>
 
           <div class="col">
@@ -93,8 +97,10 @@ export const CURRENCY_OPTIONS = ['PLN', 'EUR', 'USD', 'GBP', 'CHF'] as const;
                   <mat-option [value]="curr">{{ curr }}</mat-option>
                 }
               </mat-select>
+              @for (error of assetForm.currency().errors(); track $index) {
+                <mat-error>{{ error.message }}</mat-error>
+              }
             </mat-form-field>
-            <app-field-errors [field]="assetForm.currency" />
           </div>
         </div>
 
@@ -103,8 +109,10 @@ export const CURRENCY_OPTIONS = ['PLN', 'EUR', 'USD', 'GBP', 'CHF'] as const;
             <mat-label>Exchange rate to PLN</mat-label>
             <input matInput type="number" step="0.0001" [formField]="assetForm.exchangeRateToBase" />
             <mat-hint>1 {{ assetForm.currency().value() }} = X PLN (manual rate)</mat-hint>
+            @for (error of assetForm.exchangeRateToBase().errors(); track $index) {
+              <mat-error>{{ error.message }}</mat-error>
+            }
           </mat-form-field>
-          <app-field-errors [field]="assetForm.exchangeRateToBase" />
         }
 
         <div class="toggle-container">

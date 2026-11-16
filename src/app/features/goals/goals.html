@@ -22,48 +22,59 @@
 
   <!-- Summary Tiles Strip -->
   <section class="summary-strip" aria-label="Goals Summary Metrics">
-    <div class="summary-tile">
-      <app-metric-tile
-        label="Available for goals"
-        [value]="wealthSummary().availableForGoals"
-        hint="Eligible wealth minus cushion & reserves"
-        icon="savings"
-        tone="positive"
-      />
-    </div>
+    <mat-card class="metric-card" appearance="outlined">
+      <mat-card-content class="metric-content">
+        <div class="metric-header">
+          <span class="metric-label">Available for goals</span>
+          <mat-icon class="metric-icon" aria-hidden="true">savings</mat-icon>
+        </div>
+        <div class="metric-value positive">
+          {{ wealthSummary().availableForGoals | money }}
+        </div>
+        <div class="metric-hint">Eligible wealth minus cushion &amp; reserves</div>
+      </mat-card-content>
+    </mat-card>
 
-    <div class="summary-tile">
-      <app-metric-tile
-        label="Financial cushion"
-        [value]="cushionStatus().funded"
-        [hint]="cushionHint()"
-        icon="shield"
-        [tone]="cushionTone()"
-      />
-    </div>
+    <mat-card class="metric-card" appearance="outlined">
+      <mat-card-content class="metric-content">
+        <div class="metric-header">
+          <span class="metric-label">Financial cushion</span>
+          <mat-icon class="metric-icon" aria-hidden="true">shield</mat-icon>
+        </div>
+        <div class="metric-value" [class]="cushionTone()">
+          {{ cushionStatus().funded | money }}
+        </div>
+        <div class="metric-hint">{{ cushionHint() }}</div>
+      </mat-card-content>
+    </mat-card>
 
-    <div class="summary-tile">
-      <app-metric-tile
-        label="Reserved for goals"
-        [value]="wealthSummary().reservedAmounts"
-        hint="Earmarked for completed goals"
-        icon="bookmark"
-        tone="default"
-      />
-    </div>
+    <mat-card class="metric-card" appearance="outlined">
+      <mat-card-content class="metric-content">
+        <div class="metric-header">
+          <span class="metric-label">Reserved for goals</span>
+          <mat-icon class="metric-icon" aria-hidden="true">bookmark</mat-icon>
+        </div>
+        <div class="metric-value">
+          {{ wealthSummary().reservedAmounts | money }}
+        </div>
+        <div class="metric-hint">Earmarked for completed goals</div>
+      </mat-card-content>
+    </mat-card>
   </section>
 
   <!-- Financial Cushion Priority Warning Banner -->
   @if (cushionStatus().deficit > 0) {
-    <div class="warning-banner" role="alert">
-      <mat-icon class="banner-icon">priority_high</mat-icon>
-      <div class="banner-content">
-        <strong>Financial Cushion Deficit: {{ cushionStatus().deficit | money }}</strong>
-        <p>
-          By accounting priority, the cushion takes priority before funding goals. New savings will fund the cushion first.
-        </p>
-      </div>
-    </div>
+    <mat-card class="warning-banner" appearance="outlined" role="alert">
+      <mat-card-content class="warning-banner-content">
+        <mat-icon class="banner-icon">priority_high</mat-icon>
+        <div class="banner-content">
+          <strong>Financial Cushion Deficit: {{ cushionStatus().deficit | money }}</strong>
+          <p>
+            By accounting priority, the cushion takes priority before funding goals. New savings will fund the cushion first.
+          </p>
+        </div>
+      </mat-card-content>
+    </mat-card>
   }
 
   <!-- Empty State when no goals exist at all -->
@@ -93,13 +104,15 @@
       </div>
 
       @if (uncompletedGoals().length === 0) {
-        <div class="all-completed-card">
-          <mat-icon class="all-completed-icon">check_circle_outline</mat-icon>
-          <div class="all-completed-text">
-            <h3>No active goals in sequence</h3>
-            <p>All your goals are currently completed or skipped.</p>
-          </div>
-        </div>
+        <mat-card class="all-completed-card" appearance="outlined">
+          <mat-card-content class="all-completed-layout">
+            <mat-icon class="all-completed-icon">check_circle_outline</mat-icon>
+            <div class="all-completed-text">
+              <h3>No active goals in sequence</h3>
+              <p>All your goals are currently completed or skipped.</p>
+            </div>
+          </mat-card-content>
+        </mat-card>
       } @else {
         <div
           cdkDropList
@@ -113,7 +126,7 @@
             let i = $index, first = $first, last = $last
           ) {
             <div cdkDrag class="goal-item-wrapper">
-              <mat-card class="goal-card" [class.active-card]="first">
+              <mat-card class="goal-card" appearance="outlined" [class.active-card]="first">
                 <mat-card-content class="goal-card-content">
                   <!-- Top Row: Badge, Drag Handle, Name, and Actions -->
                   <div class="card-header-row">
@@ -127,16 +140,18 @@
                         drag_indicator
                       </mat-icon>
 
-                      @if (first) {
-                        <span class="badge active-badge">
-                          <mat-icon class="badge-icon">star</mat-icon>
-                          Active Goal
-                        </span>
-                      } @else {
-                        <span class="badge upcoming-badge">
-                          Upcoming #{{ i + 1 }}
-                        </span>
-                      }
+                      <mat-chip-set>
+                        @if (first) {
+                          <mat-chip class="badge active-badge" highlighted>
+                            <mat-icon matChipAvatar>star</mat-icon>
+                            Active Goal
+                          </mat-chip>
+                        } @else {
+                          <mat-chip class="badge upcoming-badge">
+                            Upcoming #{{ i + 1 }}
+                          </mat-chip>
+                        }
+                      </mat-chip-set>
 
                       <h3 class="goal-name">{{ item.goal.name }}</h3>
                     </div>
@@ -289,11 +304,13 @@
 
         <div class="goals-list">
           @for (goal of store.skippedGoals(); track goal.id) {
-            <mat-card class="goal-card skipped-card">
+            <mat-card class="goal-card skipped-card" appearance="outlined">
               <mat-card-content class="goal-card-content">
                 <div class="card-header-row">
                   <div class="header-left">
-                    <span class="badge skipped-badge">Skipped</span>
+                    <mat-chip-set>
+                      <mat-chip class="badge skipped-badge">Skipped</mat-chip>
+                    </mat-chip-set>
                     <h3 class="goal-name">{{ goal.name }}</h3>
                     <span class="amount-tag">
                       Target: {{ goal.targetAmount | money }}
@@ -354,21 +371,23 @@
 
         <div class="goals-list">
           @for (goal of store.completedGoals(); track goal.id) {
-            <mat-card class="goal-card completed-card">
+            <mat-card class="goal-card completed-card" appearance="outlined">
               <mat-card-content class="goal-card-content">
                 <div class="card-header-row">
                   <div class="header-left">
-                    @if (goal.completionChoice === 'spend') {
-                      <span class="badge spend-badge">
-                        Spent: {{ (goal.spentAmount ?? goal.targetAmount) | money }}
-                      </span>
-                    } @else if (goal.completionChoice === 'reserve') {
-                      <span class="badge reserve-badge">
-                        Reserved: {{ (goal.reservedAmount ?? goal.targetAmount) | money }}
-                      </span>
-                    } @else {
-                      <span class="badge release-badge">Released</span>
-                    }
+                    <mat-chip-set>
+                      @if (goal.completionChoice === 'spend') {
+                        <mat-chip class="badge spend-badge">
+                          Spent: {{ (goal.spentAmount ?? goal.targetAmount) | money }}
+                        </mat-chip>
+                      } @else if (goal.completionChoice === 'reserve') {
+                        <mat-chip class="badge reserve-badge">
+                          Reserved: {{ (goal.reservedAmount ?? goal.targetAmount) | money }}
+                        </mat-chip>
+                      } @else {
+                        <mat-chip class="badge release-badge">Released</mat-chip>
+                      }
+                    </mat-chip-set>
 
                     <h3 class="goal-name">{{ goal.name }}</h3>
                     <span class="amount-tag">
