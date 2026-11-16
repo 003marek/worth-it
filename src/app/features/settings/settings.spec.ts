@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { submit } from '@angular/forms/signals';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -294,6 +294,58 @@ describe('Settings', () => {
       expect(securityCard?.textContent).toContain('No Cloud Backend');
       expect(securityCard?.textContent).toContain('Device-Level Security');
       expect(securityCard?.textContent).toContain('Backup Frequency');
+    });
+  });
+
+  describe('App Version & Secret Admin Mode', () => {
+    it('renders the app version at the bottom of the page', () => {
+      const el = fixture.nativeElement as HTMLElement;
+      const versionEl = el.querySelector('.version-info');
+      expect(versionEl).toBeTruthy();
+      expect(versionEl?.textContent).toMatch(/Version \d+\.\d+\.\d+/);
+    });
+
+    it('navigates with admin query param after 3 clicks within 60 seconds', () => {
+      const router = TestBed.inject(Router);
+      const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+      const el = fixture.nativeElement as HTMLElement;
+      const versionEl = el.querySelector('.version-info') as HTMLElement;
+      expect(versionEl).toBeTruthy();
+
+      versionEl.click();
+      versionEl.click();
+      expect(navigateSpy).not.toHaveBeenCalled();
+
+      versionEl.click();
+      expect(navigateSpy).toHaveBeenCalledWith([], {
+        relativeTo: expect.anything(),
+        queryParams: { admin: 'true' },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    });
+
+    it('resets click count if clicks are separated by more than 60 seconds', () => {
+      const router = TestBed.inject(Router);
+      const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+      const el = fixture.nativeElement as HTMLElement;
+      const versionEl = el.querySelector('.version-info') as HTMLElement;
+
+      const dateNowSpy = vi.spyOn(Date, 'now');
+      dateNowSpy.mockReturnValue(1000);
+      versionEl.click();
+      versionEl.click();
+
+      // Advance time by 61 seconds
+      dateNowSpy.mockReturnValue(1000 + 61000);
+      versionEl.click();
+
+      // Only 1 click counted after reset, so navigate should not have been called
+      expect(navigateSpy).not.toHaveBeenCalled();
+
+      dateNowSpy.mockRestore();
     });
   });
 });

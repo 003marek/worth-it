@@ -7,9 +7,11 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { form, FormField, FormRoot, max, min, required } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatRipple } from '@angular/material/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -20,8 +22,9 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { RouterLink } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { firstValueFrom, map } from 'rxjs';
+import packageJson from '../../../../package.json';
 import {
   AppTheme,
   DashboardLayout,
@@ -60,6 +63,7 @@ export interface PreferencesFormModel {
     MatSlideToggleModule,
     MatProgressBarModule,
     MatDividerModule,
+    MatRipple,
     RouterLink,
     FormRoot,
     FormField,
@@ -449,6 +453,25 @@ export interface PreferencesFormModel {
           </ul>
         </mat-card-content>
       </mat-card>
+
+      <!-- 6. Secret Admin Area (unlocked via triple-clicking app version) -->
+      @if (isAdmin()) {
+        <mat-card class="settings-card admin-card">
+          <mat-card-header>
+            <mat-icon mat-card-avatar class="card-avatar-icon">admin_panel_settings</mat-icon>
+            <mat-card-title>Admin Area</mat-card-title>
+            <mat-card-subtitle>Administrative tools & developer options</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content class="card-content">
+            <p class="admin-notice">Secret admin mode is active.</p>
+          </mat-card-content>
+        </mat-card>
+      }
+
+      <!-- App Version Display -->
+      <div class="version-info" (click)="handleVersionClick()" matRipple>
+        Version {{ appVersion }}
+      </div>
     </div>
   `,
   styles: [
@@ -693,6 +716,27 @@ export interface PreferencesFormModel {
         flex-direction: column;
         gap: 6px;
       }
+      .admin-card {
+        border-left: 4px solid var(--mat-sys-primary);
+        background-color: var(--mat-sys-surface-container-low);
+      }
+      .admin-notice {
+        margin: 0;
+        font-size: 0.875rem;
+        color: var(--mat-sys-on-surface-variant);
+      }
+      .version-info {
+        text-align: center;
+        color: var(--mat-sys-on-surface-variant);
+        font-size: 0.9rem;
+        padding: 0.5rem 0.75rem;
+        cursor: pointer;
+        user-select: none;
+        width: fit-content;
+        margin: 8px auto 16px;
+        border-radius: 1rem;
+        -webkit-tap-highlight-color: transparent;
+      }
     `,
   ],
 })
@@ -702,6 +746,17 @@ export class Settings {
   protected readonly themeService = inject(ThemeService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
+  private versionClickCount = 0;
+  private lastVersionClickTime = 0;
+
+  protected readonly appVersion = packageJson.version;
+  readonly isAdmin = toSignal(
+    this.route.queryParamMap.pipe(map((params) => params.has('admin'))),
+    { initialValue: false }
+  );
 
   readonly cushionStatus = this.store.financialCushionStatus;
 
@@ -814,6 +869,25 @@ export class Settings {
       ...m,
       averageMonthlyExpenses: expenses,
     }));
+  }
+
+  handleVersionClick(): void {
+    const now = Date.now();
+    if (now - this.lastVersionClickTime > 60000) {
+      this.versionClickCount = 0;
+    }
+
+    this.versionClickCount++;
+    this.lastVersionClickTime = now;
+
+    if (this.versionClickCount >= 3) {
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { admin: 'true' },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
   }
 
   // --- Backup & Restore ---
