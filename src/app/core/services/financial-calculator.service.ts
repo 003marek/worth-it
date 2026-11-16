@@ -1,4 +1,6 @@
 import { Injectable } from '@angular/core';
+import { ProjectedInflow } from '../asset-types/asset-type-handler';
+import { compareIsoDates, daysBetween } from '../asset-types/date-utils';
 import {
   Asset,
   ExpenseCategory,
@@ -342,13 +344,100 @@ export class FinancialCalculatorService {
   }
 
   /**
+   * Earliest date the cumulative projected funding F(t) >= threshold.
+   * F(t) = monthlySurplus * days(ref->t)/DAYS_PER_MONTH + Σ inflows with date <= t.
+   * Returns null if never reached (surplus <= 0 and inflows insufficient).
+   * threshold <= 0 -> ref date.
+   */
+  projectFundingDate(
+    threshold: number,
+    monthlySurplus: number,
+    inflows: readonly ProjectedInflow[] = [],
+    referenceDate?: Date
+  ): { date: string; months: number } | null {
+    const ref = referenceDate ? new Date(referenceDate) : new Date();
+    const refIso = this.formatDate(ref);
+
+    if (threshold <= 0) {
+      return { date: refIso, months: 0 };
+    }
+
+    const positiveInflows = (inflows || []).filter(
+      (inf) => Number.isFinite(inf.amountInBase) && inf.amountInBase > 0
+    );
+
+    if (positiveInflows.length === 0) {
+      if (monthlySurplus <= 0) {
+        return null;
+      }
+      const rawMonths = threshold / monthlySurplus;
+      const months = Math.round(rawMonths * 10) / 10;
+      const date = this.calculateDateFromNow(rawMonths, ref)!;
+      return { date, months };
+    }
+
+    let cumInflows = 0;
+    const futureByDate = new Map<string, number>();
+
+    for (const inf of positiveInflows) {
+      const dateIso = inf.date.slice(0, 10);
+      if (compareIsoDates(dateIso, refIso) <= 0) {
+        cumInflows += inf.amountInBase;
+      } else {
+        futureByDate.set(dateIso, (futureByDate.get(dateIso) ?? 0) + inf.amountInBase);
+      }
+    }
+
+    if (cumInflows >= threshold) {
+      return { date: refIso, months: 0 };
+    }
+
+    const sortedDates = Array.from(futureByDate.keys()).sort(compareIsoDates);
+
+    for (const inflowDate of sortedDates) {
+      const inflowDays = daysBetween(refIso, inflowDate);
+
+      if (monthlySurplus > 0) {
+        const valueBeforeInflow =
+          cumInflows + monthlySurplus * (inflowDays / this.DAYS_PER_MONTH);
+        if (valueBeforeInflow >= threshold) {
+          const rawMonths = (threshold - cumInflows) / monthlySurplus;
+          const months = Math.round(rawMonths * 10) / 10;
+          const date = this.calculateDateFromNow(rawMonths, ref)!;
+          return { date, months };
+        }
+      }
+
+      cumInflows += futureByDate.get(inflowDate)!;
+      const valueAtInflow =
+        cumInflows + monthlySurplus * (inflowDays / this.DAYS_PER_MONTH);
+
+      if (valueAtInflow >= threshold) {
+        const rawMonths = inflowDays / this.DAYS_PER_MONTH;
+        const months = Math.round(rawMonths * 10) / 10;
+        return { date: inflowDate, months };
+      }
+    }
+
+    if (monthlySurplus > 0) {
+      const rawMonths = (threshold - cumInflows) / monthlySurplus;
+      const months = Math.round(rawMonths * 10) / 10;
+      const date = this.calculateDateFromNow(rawMonths, ref)!;
+      return { date, months };
+    }
+
+    return null;
+  }
+
+  /**
    * Financial Cushion status object.
    */
   calculateFinancialCushionStatus(
     goalEligibleWealth: number,
     cushion: FinancialCushionSettings | null | undefined,
     monthlySurplus: number = 0,
-    referenceDate?: Date
+    referenceDate?: Date,
+    inflows: readonly ProjectedInflow[] = []
   ): FinancialCushionStatus {
     const isEnabled = !!cushion?.isEnabled;
     const target = this.calculateCushionTarget(cushion);
@@ -363,13 +452,17 @@ export class FinancialCalculatorService {
     if (isFullyFunded) {
       estimatedCompletionMonths = 0;
       estimatedCompletionDate = null;
-    } else if (monthlySurplus > 0) {
-      const rawMonths = deficit / monthlySurplus;
-      estimatedCompletionMonths = Math.round(rawMonths * 10) / 10;
-      estimatedCompletionDate = this.calculateDateFromNow(
-        rawMonths,
+    } else {
+      const projected = this.projectFundingDate(
+        deficit,
+        monthlySurplus,
+        inflows,
         referenceDate
       );
+      if (projected) {
+        estimatedCompletionMonths = projected.months;
+        estimatedCompletionDate = projected.date;
+      }
     }
 
     return {
@@ -399,7 +492,8 @@ export class FinancialCalculatorService {
     availableGoalWealth: number,
     cushionDeficit: number = 0,
     monthlySurplus: number = 0,
-    referenceDate?: Date
+    referenceDate?: Date,
+    inflows: readonly ProjectedInflow[] = []
   ): GoalFundingSummary[] {
     if (!goals || goals.length === 0) return [];
 
@@ -453,14 +547,18 @@ export class FinancialCalculatorService {
       if (isFullyFunded) {
         estimatedCompletionMonths = 0;
         estimatedCompletionDate = null;
-      } else if (monthlySurplus > 0) {
+      } else {
         accumulatedDeficit += remainingAmount;
-        const rawMonths = accumulatedDeficit / monthlySurplus;
-        estimatedCompletionMonths = Math.round(rawMonths * 10) / 10;
-        estimatedCompletionDate = this.calculateDateFromNow(
-          rawMonths,
+        const projected = this.projectFundingDate(
+          accumulatedDeficit,
+          monthlySurplus,
+          inflows,
           referenceDate
         );
+        if (projected) {
+          estimatedCompletionMonths = projected.months;
+          estimatedCompletionDate = projected.date;
+        }
       }
 
       return {
@@ -485,7 +583,8 @@ export class FinancialCalculatorService {
     goals: Goal[],
     availableGoalWealth: number,
     cushionDeficit: number,
-    referenceDate?: Date
+    referenceDate?: Date,
+    inflows: readonly ProjectedInflow[] = []
   ): ProjectionSummary {
     const surplusSummary = this.calculateMonthlySurplusSummary(
       incomeSources,
@@ -494,22 +593,48 @@ export class FinancialCalculatorService {
     );
     const { monthlyIncome, monthlyExpenses, monthlySurplus } = surplusSummary;
 
-    const cushionMonthsToFund = this.calculateCushionCompletionMonths(
-      cushionDeficit,
-      monthlySurplus
-    );
-    const cushionEstimatedCompletionDate =
-      cushionMonthsToFund !== null && cushionMonthsToFund > 0
-        ? this.calculateDateFromNow(cushionMonthsToFund, referenceDate)
-        : null;
+    let cushionMonthsToFund: number | null = null;
+    let cushionEstimatedCompletionDate: string | null = null;
+
+    if (cushionDeficit <= 0) {
+      cushionMonthsToFund = 0;
+      cushionEstimatedCompletionDate = null;
+    } else {
+      const cushionProjected = this.projectFundingDate(
+        cushionDeficit,
+        monthlySurplus,
+        inflows,
+        referenceDate
+      );
+      if (cushionProjected) {
+        cushionMonthsToFund = cushionProjected.months;
+        cushionEstimatedCompletionDate = cushionProjected.date;
+      }
+    }
 
     const goalsTimeline = this.calculateGoalsFundingSummary(
       goals,
       availableGoalWealth,
       cushionDeficit,
       monthlySurplus,
-      referenceDate
+      referenceDate,
+      inflows
     );
+
+    const projectedInflowsTotal =
+      Math.round(
+        (inflows || []).reduce(
+          (acc, inf) => acc + (Number(inf.amountInBase) || 0),
+          0
+        ) * 100
+      ) / 100;
+
+    const assumptions: string[] = [];
+    if (inflows && inflows.length > 0) {
+      assumptions.push(
+        `Includes ${inflows.length} future stock ${inflows.length === 1 ? 'vest' : 'vests'} valued at today's price and NBP rate`
+      );
+    }
 
     return {
       monthlyIncome,
@@ -518,6 +643,8 @@ export class FinancialCalculatorService {
       cushionMonthsToFund,
       cushionEstimatedCompletionDate,
       goalsTimeline,
+      projectedInflowsTotal,
+      assumptions,
     };
   }
 }

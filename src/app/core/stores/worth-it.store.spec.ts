@@ -1,6 +1,9 @@
 import 'fake-indexeddb/auto';
 import { TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
+import { MarketQuote } from '../models/market-data.model';
 import { FinancialCalculatorService } from '../services/financial-calculator.service';
+import { MarketDataService } from '../services/market-data/market-data.service';
 import { StorageService } from '../services/storage.service';
 import { WorthItStore } from './worth-it.store';
 
@@ -376,6 +379,270 @@ describe('WorthItStore', () => {
       expect(proj.monthlySurplus).toBe(5000);
       expect(proj.cushionMonthsToFund).toBe(0);
       expect(proj.goalsTimeline).toHaveLength(2);
+    });
+  });
+
+  describe('Employer Stock: Grant CRUD, Baseline Set/Clear & Wealth/Projection Integration', () => {
+    beforeEach(() => {
+      store.refreshToday('2026-11-16');
+    });
+
+    it('supports StockGrant CRUD and cascades grant deletion + unlinks sales when asset is deleted', async () => {
+      const stockAsset = await store.addAsset({
+        name: 'Alphabet RSU',
+        type: 'employer_stock',
+        currency: 'USD',
+        balance: 0,
+        isGoalEligible: true,
+        employerStock: {
+          tickerSymbol: 'GOOGL',
+          manualPrice: 200,
+          manualFxRate: 4.0,
+        },
+      });
+
+      expect(store.employerStockAssets()).toHaveLength(1);
+      expect(store.grantsByAsset().get(stockAsset.id)).toEqual([]);
+
+      const grant = await store.addStockGrant({
+        assetId: stockAsset.id,
+        name: '2025 Initial Grant',
+        grantDate: '2025-11-15',
+        totalShares: 40,
+        schedule: {
+          frequency: 'annual',
+          durationMonths: 48,
+          cliffMonths: 12,
+        },
+        tranches: [
+          { id: 't1', vestDate: '2026-11-15', shares: 10 },
+          { id: 't2', vestDate: '2027-11-15', shares: 10 },
+          { id: 't3', vestDate: '2028-11-15', shares: 10 },
+          { id: 't4', vestDate: '2029-11-15', shares: 10 },
+        ],
+        isScheduleCustomized: false,
+      });
+
+      expect(store.stockGrants()).toHaveLength(1);
+      expect(store.grantsByAsset().get(stockAsset.id)).toHaveLength(1);
+
+      const updatedGrant = await store.updateStockGrant(grant.id, {
+        name: '2025 Updated Grant',
+        isScheduleCustomized: true,
+      });
+      expect(updatedGrant?.name).toBe('2025 Updated Grant');
+      expect(store.stockGrants()[0].isScheduleCustomized).toBe(true);
+
+      // Link a stock sale to this employer_stock asset
+      const linkedSale = await store.addStockSale({
+        sourceAssetId: stockAsset.id,
+        companyOrTicker: 'GOOGL',
+        saleDate: '2026-11-16',
+        sharesSold: 3,
+        pricePerShare: 200,
+        currency: 'USD',
+      });
+      expect(linkedSale.sourceAssetId).toBe(stockAsset.id);
+
+      // Snapshot reflects 10 vested - 3 sold = 7 held, 30 unvested
+      const snap = store.employerStockSnapshots().get(stockAsset.id)!;
+      expect(snap.heldShares).toBe(7);
+      expect(snap.unvestedShares).toBe(30);
+      expect(snap.soldSharesCounted).toBe(3);
+
+      // Delete grant directly
+      const secondGrant = await store.addStockGrant({
+        assetId: stockAsset.id,
+        grantDate: '2026-01-15',
+        totalShares: 10,
+        schedule: { frequency: 'annual', durationMonths: 12, cliffMonths: 0 },
+        tranches: [{ id: 't5', vestDate: '2027-01-15', shares: 10 }],
+        isScheduleCustomized: false,
+      });
+      expect(store.stockGrants()).toHaveLength(2);
+      await store.deleteStockGrant(secondGrant.id);
+      expect(store.stockGrants()).toHaveLength(1);
+
+      // Deleting the asset cascades to remaining grants and clears sourceAssetId on linked sales
+      await store.deleteAsset(stockAsset.id);
+      expect(store.stockGrants()).toHaveLength(0);
+      expect(store.stockSales()).toHaveLength(1);
+      expect(store.stockSales()[0].sourceAssetId).toBeUndefined();
+    });
+
+    it('sets and clears vestedSharesBaseline and updates heldShares and wealth accordingly', async () => {
+      const stockAsset = await store.addAsset({
+        name: 'Microsoft RSU',
+        type: 'employer_stock',
+        currency: 'USD',
+        balance: 0,
+        isGoalEligible: true,
+        employerStock: {
+          tickerSymbol: 'MSFT',
+          manualPrice: 400,
+          manualFxRate: 4.0, // 1 share = 1,600 PLN
+        },
+      });
+
+      await store.addStockGrant({
+        assetId: stockAsset.id,
+        grantDate: '2025-01-15',
+        totalShares: 30,
+        schedule: { frequency: 'annual', durationMonths: 36, cliffMonths: 0 },
+        tranches: [
+          { id: 'm1', vestDate: '2025-06-15', shares: 10 },
+          { id: 'm2', vestDate: '2026-06-15', shares: 10 },
+          { id: 'm3', vestDate: '2027-06-15', shares: 10 },
+        ],
+        isScheduleCustomized: false,
+      });
+
+      // Without baseline at 2026-11-16: 20 vested & held shares -> 20 * 400 * 4 = 32,000 PLN
+      expect(store.employerStockSnapshots().get(stockAsset.id)?.heldShares).toBe(20);
+      expect(store.wealthSummary().totalWealth).toBe(32000);
+
+      // Set baseline: 12 shares as of 2026-01-01
+      // Tranche m1 (2025-06-15) is before baseline (ignored); m2 (2026-06-15, +10 sh) is after baseline
+      // Held shares at 2026-11-16 = 12 + 10 = 22 shares -> 22 * 1,600 = 35,200 PLN
+      await store.setVestedSharesBaseline(stockAsset.id, 12, '2026-01-01');
+      expect(store.employerStockSnapshots().get(stockAsset.id)?.heldShares).toBe(22);
+      expect(store.wealthSummary().totalWealth).toBe(35200);
+
+      // Clear baseline -> reverts to full grant schedule (20 held shares -> 32,000 PLN)
+      await store.clearVestedSharesBaseline(stockAsset.id);
+      expect(store.employerStockSnapshots().get(stockAsset.id)?.heldShares).toBe(20);
+      expect(store.wealthSummary().totalWealth).toBe(32000);
+    });
+
+    it('never includes unvested shares in wealthSummary, while feeding them as projectedInflows to projections', async () => {
+      await store.updateCushionSettings({
+        isEnabled: false,
+        averageMonthlyExpenses: 0,
+      });
+
+      const stockAsset = await store.addAsset({
+        name: 'Alphabet RSU',
+        type: 'employer_stock',
+        currency: 'USD',
+        balance: 0,
+        isGoalEligible: true,
+        employerStock: {
+          tickerSymbol: 'GOOGL',
+          manualPrice: 250,
+          manualFxRate: 4.0, // 1 share = 1,000 PLN
+        },
+      });
+
+      // 5 vested shares (5,000 PLN) and 25 unvested future shares (25,000 PLN on 2027-03-15)
+      await store.addStockGrant({
+        assetId: stockAsset.id,
+        grantDate: '2026-03-15',
+        totalShares: 30,
+        schedule: { frequency: 'annual', durationMonths: 24, cliffMonths: 0 },
+        tranches: [
+          { id: 'v1', vestDate: '2026-09-15', shares: 5 },
+          { id: 'v2', vestDate: '2027-03-15', shares: 25 },
+        ],
+        isScheduleCustomized: false,
+      });
+
+      // Actual wealth ONLY counts the 5 vested shares (5,000 PLN) — unvested 25,000 PLN is excluded!
+      expect(store.wealthSummary().recordedAssetsTotal).toBe(5000);
+      expect(store.wealthSummary().totalWealth).toBe(5000);
+      expect(store.wealthSummary().goalEligibleWealth).toBe(5000);
+      expect(store.wealthSummary().availableForGoals).toBe(5000);
+
+      // Projected inflows has the 25 unvested shares (25,000 PLN on 2027-03-15)
+      expect(store.projectedInflows()).toEqual([
+        {
+          date: '2027-03-15',
+          amountInBase: 25000,
+          assetId: stockAsset.id,
+          sourceId: 'v2',
+          label: 'GOOGL vest · 25 sh',
+        },
+      ]);
+
+      // Add a 20,000 PLN goal with 0 monthly surplus:
+      // 5,000 PLN is currently funded, remaining 15,000 PLN is completed on 2027-03-15 by the stock vest!
+      await store.addGoal({ name: 'Dream Trip', targetAmount: 20000 });
+      const goalFunding = store.goalsWithFunding()[0];
+      expect(goalFunding.currentProgress).toBe(5000);
+      expect(goalFunding.remainingAmount).toBe(15000);
+      expect(goalFunding.isFullyFunded).toBe(false);
+      expect(goalFunding.estimatedCompletionDate).toBe('2027-03-15');
+
+      const proj = store.projectionSummary();
+      expect(proj.projectedInflowsTotal).toBe(25000);
+      expect(proj.assumptions).toContain(
+        "Includes 1 future stock vest valued at today's price and NBP rate"
+      );
+    });
+
+    it('delegates lookupTicker and refreshMarketData to MarketDataService and updates store state', async () => {
+      const mds = {
+        lookupSymbol: vi.fn(async (symbol: string): Promise<MarketQuote> => {
+          const quote: MarketQuote = {
+            symbol: symbol.toUpperCase(),
+            price: 210,
+            currency: 'USD',
+            name: 'Alphabet Inc.',
+            fetchedAt: new Date().toISOString(),
+          };
+          await storage.saveMarketQuote(quote);
+          return quote;
+        }),
+        refreshQuotes: vi.fn(async () => ({
+          updated: ['GOOGL'],
+          skipped: [],
+          errors: [],
+        })),
+        refreshFxRates: vi.fn(async () => {
+          await storage.saveFxRate({
+            pair: 'USD/PLN',
+            from: 'USD',
+            to: 'PLN',
+            rate: 4.1,
+            effectiveDate: '2026-11-16',
+            fetchedAt: new Date().toISOString(),
+          });
+          return {
+            updated: ['USD/PLN'],
+            skipped: [],
+            errors: [],
+          };
+        }),
+      };
+
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          StorageService,
+          FinancialCalculatorService,
+          WorthItStore,
+          { provide: MarketDataService, useValue: mds },
+        ],
+      });
+
+      const localStore = TestBed.inject(WorthItStore);
+      await localStore.loadAll();
+
+      await localStore.addAsset({
+        name: 'Alphabet RSU',
+        type: 'employer_stock',
+        currency: 'USD',
+        employerStock: { tickerSymbol: 'GOOGL' },
+      });
+
+      const quote = await localStore.lookupTicker('googl');
+      expect(quote.price).toBe(210);
+      expect(localStore.marketQuotes()).toHaveLength(1);
+
+      const refreshResult = await localStore.refreshMarketData({ force: true });
+      expect(refreshResult.updated).toEqual(['GOOGL', 'USD/PLN']);
+      expect(localStore.fxRates()).toHaveLength(1);
+      expect(localStore.lastMarketRefresh()).toEqual(refreshResult);
+      expect(localStore.marketDataRefreshing()).toBe(false);
     });
   });
 });

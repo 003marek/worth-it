@@ -8,13 +8,16 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { StockSale } from '../../core/models/worth-it.model';
+import { WorthItStore } from '../../core/stores/worth-it.store';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 
 export interface StockSaleDialogData {
   sale?: StockSale;
+  preselectedAssetId?: string;
 }
 
 export interface StockSaleFormModel {
+  sourceAssetId: string;
   companyOrTicker: string;
   saleDate: string;
   sharesSold: number;
@@ -26,6 +29,7 @@ export interface StockSaleFormModel {
 }
 
 export interface StockSaleDialogResult {
+  sourceAssetId?: string;
   companyOrTicker: string;
   saleDate: string;
   sharesSold: number;
@@ -60,6 +64,40 @@ export interface StockSaleDialogResult {
     <form [formRoot]="saleForm">
       <mat-dialog-content class="dialog-content">
         <div class="form-grid">
+          <!-- Source Employer Stock Dropdown (UX Screen 6) -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Source Employer Stock (Optional)</mat-label>
+            <mat-select
+              [value]="model().sourceAssetId"
+              (selectionChange)="onSourceAssetChange($event.value)"
+              placeholder="Select company equity (optional)"
+            >
+              <mat-option value="">None (independent sale)</mat-option>
+              @for (asset of employerStockAssets(); track asset.id) {
+                <mat-option [value]="asset.id">
+                  {{ asset.name }} ({{ asset.employerStock?.tickerSymbol || asset.currency }})
+                </mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Amber Accounting Clarification Banner -->
+          @if (selectedSourceAsset(); as sourceAsset) {
+            <mat-card appearance="outlined" class="source-asset-notice" role="note">
+              <mat-card-content class="notice-content">
+                <mat-icon class="notice-icon amber-icon">info</mat-icon>
+                <div class="banner-text-block">
+                  <p class="banner-primary">
+                    Selling {{ model().sharesSold }} shares will deduct them from {{ sourceAsset.name }}'s held vested shares as of {{ model().saleDate }}.
+                  </p>
+                  <p class="banner-secondary">
+                    Sale proceeds do not automatically add to cash accounts. Update your bank balance when cash settles.
+                  </p>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          }
+
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Company or Ticker</mat-label>
             <input
@@ -255,6 +293,30 @@ export interface StockSaleDialogResult {
           grid-template-columns: 1fr;
         }
       }
+      .source-asset-notice {
+        background-color: var(--mat-sys-surface-container);
+        border-left: 4px solid var(--mat-sys-tertiary, #e69a00);
+        margin: 2px 0 8px;
+      }
+      .amber-icon {
+        color: var(--mat-sys-tertiary, #e69a00);
+      }
+      .banner-text-block {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .banner-primary {
+        margin: 0;
+        font-weight: 500;
+        font-size: 0.8125rem;
+        color: var(--mat-sys-on-surface);
+      }
+      .banner-secondary {
+        margin: 0;
+        font-size: 0.75rem;
+        color: var(--mat-sys-on-surface-variant);
+      }
       .preview-card {
         background-color: var(--mat-sys-surface-container);
         margin: 4px 0 10px;
@@ -309,18 +371,18 @@ export class StockSaleDialog {
   private readonly dialogRef = inject(
     MatDialogRef<StockSaleDialog, StockSaleDialogResult>
   );
+  protected readonly store = inject(WorthItStore, { optional: true });
 
-  readonly model = signal<StockSaleFormModel>({
-    companyOrTicker: this.data?.sale?.companyOrTicker ?? '',
-    saleDate: this.data?.sale?.saleDate
-      ? this.data.sale.saleDate.substring(0, 10)
-      : new Date().toISOString().substring(0, 10),
-    sharesSold: this.data?.sale?.sharesSold ?? 1,
-    pricePerShare: this.data?.sale?.pricePerShare ?? 0,
-    currency: (this.data?.sale?.currency as StockSaleFormModel['currency']) || 'USD',
-    exchangeRateToPln: this.computeInitialExchangeRate(),
-    plnEquivalent: this.data?.sale?.plnEquivalent ?? null,
-    notes: this.data?.sale?.notes ?? '',
+  readonly employerStockAssets = computed(() => {
+    return this.store ? this.store.employerStockAssets() : [];
+  });
+
+  readonly model = signal<StockSaleFormModel>(this.computeInitialModel());
+
+  readonly selectedSourceAsset = computed(() => {
+    const id = this.model().sourceAssetId;
+    if (!id) return null;
+    return this.employerStockAssets().find((a) => a.id === id) ?? null;
   });
 
   readonly calculatedGrossValue = computed(() => {
@@ -346,7 +408,7 @@ export class StockSaleDialog {
     return this.calculatedPlnFromRate();
   });
 
-  protected readonly saleForm = form(
+  readonly saleForm = form(
     this.model,
     (path) => {
       required(path.companyOrTicker, { message: 'Company or ticker is required' });
@@ -381,6 +443,7 @@ export class StockSaleDialog {
           }
 
           this.dialogRef.close({
+            sourceAssetId: m.sourceAssetId || undefined,
             companyOrTicker: m.companyOrTicker.trim(),
             saleDate: m.saleDate,
             sharesSold: Number(m.sharesSold),
@@ -395,6 +458,83 @@ export class StockSaleDialog {
       },
     }
   );
+
+  onSourceAssetChange(assetId: string): void {
+    this.model.update((prev) => {
+      if (!assetId) {
+        return {
+          ...prev,
+          sourceAssetId: '',
+        };
+      }
+
+      const asset = this.employerStockAssets().find((a) => a.id === assetId);
+      if (!asset) {
+        return {
+          ...prev,
+          sourceAssetId: assetId,
+        };
+      }
+
+      const ticker = asset.employerStock?.tickerSymbol || asset.name;
+      const curr = (asset.currency as StockSaleFormModel['currency']) || prev.currency;
+      let price = prev.pricePerShare;
+      if (price === 0 && this.store) {
+        const unitPrice = this.store.assetValuations().get(asset.id)?.unitPrice;
+        if (unitPrice !== undefined && unitPrice > 0) {
+          price = unitPrice;
+        }
+      }
+
+      return {
+        ...prev,
+        sourceAssetId: asset.id,
+        companyOrTicker: ticker,
+        currency: curr,
+        pricePerShare: price,
+      };
+    });
+  }
+
+  private computeInitialModel(): StockSaleFormModel {
+    const sale = this.data?.sale;
+    const preselectedId = sale?.sourceAssetId ?? this.data?.preselectedAssetId ?? '';
+    const preselectedAsset = preselectedId && this.store
+      ? this.store.employerStockAssets().find((a) => a.id === preselectedId)
+      : null;
+
+    const companyOrTicker =
+      sale?.companyOrTicker ??
+      (preselectedAsset
+        ? (preselectedAsset.employerStock?.tickerSymbol || preselectedAsset.name)
+        : '');
+
+    const currency =
+      (sale?.currency as StockSaleFormModel['currency']) ||
+      ((preselectedAsset?.currency as StockSaleFormModel['currency']) || 'USD');
+
+    let initialPrice = sale?.pricePerShare ?? 0;
+    if (!sale && preselectedAsset && this.store) {
+      const unitPrice = this.store.assetValuations().get(preselectedAsset.id)?.unitPrice;
+      if (unitPrice !== undefined && unitPrice > 0) {
+        initialPrice = unitPrice;
+      }
+    }
+
+    return {
+      sourceAssetId: preselectedId,
+      companyOrTicker,
+      saleDate: sale?.saleDate
+        ? sale.saleDate.substring(0, 10)
+        : new Date().toISOString().substring(0, 10),
+      sharesSold: sale?.sharesSold ?? 1,
+      pricePerShare: initialPrice,
+      currency,
+      exchangeRateToPln: this.computeInitialExchangeRate(),
+      plnEquivalent: sale?.plnEquivalent ?? null,
+      notes: sale?.notes ?? '',
+    };
+  }
 
   private computeInitialExchangeRate(): number | null {
     const sale = this.data?.sale;

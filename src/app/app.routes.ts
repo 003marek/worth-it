@@ -25,6 +25,14 @@ export const routes: Routes = [
       import('./features/assets/assets').then((m) => m.Assets),
   },
   {
+    path: 'assets/:assetId',
+    title: 'Employer Stock',
+    loadComponent: () =>
+      import('./features/assets/employer-stock/employer-stock-detail').then(
+        (m) => m.EmployerStockDetail
+      ),
+  },
+  {
     path: 'cashflow',
     title: 'Cash flow',
     loadComponent: () =>

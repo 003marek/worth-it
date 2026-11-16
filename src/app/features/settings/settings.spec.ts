@@ -10,6 +10,7 @@ import { FinancialCalculatorService } from '../../core/services/financial-calcul
 import { StorageService } from '../../core/services/storage.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { WorthItStore } from '../../core/stores/worth-it.store';
+import { MarketDataError } from '../../core/services/market-data/market-data.error';
 import { Settings } from './settings';
 
 describe('Settings', () => {
@@ -146,6 +147,101 @@ describe('Settings', () => {
         'OK',
         expect.any(Object)
       );
+    });
+  });
+
+  describe('Twelve Data API Key Configuration', () => {
+    it('renders the API key section with visibility toggle and IndexedDB privacy notice', () => {
+      const el = fixture.nativeElement as HTMLElement;
+      const card = el.querySelector('.api-key-card');
+      expect(card).toBeTruthy();
+      expect(card?.textContent).toContain('Twelve Data API Key');
+      expect(card?.textContent).toContain('Live market prices for employer stock tickers');
+
+      const privacy = card?.querySelector('.api-key-privacy-notice');
+      expect(privacy).toBeTruthy();
+      expect(privacy?.textContent).toContain('Your API key is stored locally in IndexedDB');
+      expect(privacy?.textContent).toContain('never uploaded to any external server other than twelvedata.com');
+
+      // Toggles visibility
+      expect(component.hideApiKey()).toBe(true);
+      component.hideApiKey.set(false);
+      expect(component.hideApiKey()).toBe(false);
+    });
+
+    it('saves Twelve Data API key to store and displays confirmation snackbar', async () => {
+      component.apiKeyModel.set({
+        twelveDataApiKey: 'test-api-key-12345',
+      });
+
+      await submit(component.apiKeyForm);
+
+      expect(store.settings().twelveDataApiKey).toBe('test-api-key-12345');
+      expect(mockSnackBar.open).toHaveBeenCalledWith(
+        'Twelve Data API key saved',
+        'OK',
+        expect.any(Object)
+      );
+    });
+
+    it('tests key with store.lookupTicker and shows valid status chip on success', async () => {
+      component.apiKeyModel.set({ twelveDataApiKey: 'valid-api-key' });
+      vi.spyOn(store, 'lookupTicker').mockResolvedValue({
+        symbol: 'AAPL',
+        price: 220,
+        currency: 'USD',
+        name: 'Apple Inc.',
+        exchange: 'NASDAQ',
+        fetchedAt: new Date().toISOString(),
+      });
+
+      await component.testApiKey();
+
+      expect(store.lookupTicker).toHaveBeenCalledWith('AAPL');
+      expect(component.apiKeyTestState().status).toBe('valid');
+      expect(component.apiKeyTestState().message).toContain('Valid key (AAPL quote received)');
+
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+      const chip = el.querySelector('.valid-chip');
+      expect(chip).toBeTruthy();
+      expect(chip?.textContent).toContain('Valid key');
+    });
+
+    it('shows invalid status chip when API key fails authentication', async () => {
+      component.apiKeyModel.set({ twelveDataApiKey: 'bad-key' });
+      vi.spyOn(store, 'lookupTicker').mockRejectedValue(
+        new MarketDataError('auth', 'Invalid API key.')
+      );
+
+      await component.testApiKey();
+
+      expect(component.apiKeyTestState().status).toBe('invalid');
+      expect(component.apiKeyTestState().message).toContain('Invalid API key. Check key and retry.');
+
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+      const chip = el.querySelector('.invalid-chip');
+      expect(chip).toBeTruthy();
+      expect(chip?.textContent).toContain('Invalid API key');
+    });
+
+    it('shows offline status chip when network error occurs', async () => {
+      component.apiKeyModel.set({ twelveDataApiKey: 'any-key' });
+      vi.spyOn(store, 'lookupTicker').mockRejectedValue(
+        new MarketDataError('network', 'Network offline.')
+      );
+
+      await component.testApiKey();
+
+      expect(component.apiKeyTestState().status).toBe('offline');
+      expect(component.apiKeyTestState().message).toContain('Network offline. Connect and retry.');
+
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+      const chip = el.querySelector('.invalid-chip');
+      expect(chip).toBeTruthy();
+      expect(chip?.textContent).toContain('Network offline');
     });
   });
 

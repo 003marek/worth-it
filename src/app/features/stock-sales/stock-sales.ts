@@ -132,11 +132,24 @@ import { StockSaleDialog } from './stock-sale-dialog';
                 </td>
               </ng-container>
 
-              <!-- Company / Ticker Column -->
+              <!-- Company / Ticker Column with Linked Employer Stock Badge -->
               <ng-container matColumnDef="companyOrTicker">
                 <th mat-header-cell *matHeaderCellDef>Company / Ticker</th>
                 <td mat-cell *matCellDef="let sale" class="company-cell">
-                  <strong>{{ sale.companyOrTicker }}</strong>
+                  <div class="company-cell-content">
+                    <span class="company-title">{{ sale.companyOrTicker }}</span>
+                    @if (sale.sourceAssetId && getLinkedAssetName(sale.sourceAssetId); as assetName) {
+                      <mat-chip-set class="source-chip-set">
+                        <mat-chip
+                          class="source-asset-chip"
+                          matTooltip="Deducted from {{ assetName }} held vested shares"
+                        >
+                          <mat-icon matChipAvatar class="chip-avatar-icon">business_center</mat-icon>
+                          <span class="chip-label">{{ assetName }} &bull; Deducted from held shares</span>
+                        </mat-chip>
+                      </mat-chip-set>
+                    }
+                  </div>
                 </td>
               </ng-container>
 
@@ -219,6 +232,12 @@ import { StockSaleDialog } from './stock-sale-dialog';
                   <mat-card-subtitle>{{ sale.saleDate }}</mat-card-subtitle>
                 </mat-card-header>
                 <mat-card-content class="mobile-card-content">
+                  @if (sale.sourceAssetId && getLinkedAssetName(sale.sourceAssetId); as assetName) {
+                    <div class="mobile-source-badge">
+                      <mat-icon class="badge-icon">business_center</mat-icon>
+                      <span>{{ assetName }} &bull; Deducted from held shares</span>
+                    </div>
+                  }
                   <div class="mobile-row">
                     <span class="mobile-label">Shares:</span>
                     <span>{{ sale.sharesSold }} @ {{ sale.pricePerShare | money:sale.currency:2 }}</span>
@@ -338,6 +357,34 @@ import { StockSaleDialog } from './stock-sale-dialog';
       .company-cell {
         color: var(--mat-sys-on-surface);
       }
+      .company-cell-content {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: flex-start;
+      }
+      .company-title {
+        font-weight: 600;
+      }
+      .source-chip-set {
+        display: inline-flex;
+      }
+      .source-asset-chip {
+        font-size: 0.6875rem !important;
+        height: 22px !important;
+        background-color: var(--mat-sys-surface-container-high) !important;
+        border: 1px solid var(--mat-sys-outline-variant) !important;
+        color: var(--mat-sys-on-surface-variant) !important;
+      }
+      .chip-avatar-icon {
+        font-size: 0.875rem !important;
+        width: 0.875rem !important;
+        height: 0.875rem !important;
+        color: var(--mat-sys-primary);
+      }
+      .chip-label {
+        font-weight: 500;
+      }
       .gross-cell {
         font-weight: 500;
       }
@@ -366,6 +413,22 @@ import { StockSaleDialog } from './stock-sale-dialog';
         flex-direction: column;
         gap: 6px;
         padding-top: 8px;
+      }
+      .mobile-source-badge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        color: var(--mat-sys-primary);
+        background-color: var(--mat-sys-surface-container);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: 500;
+      }
+      .badge-icon {
+        font-size: 1rem;
+        width: 1rem;
+        height: 1rem;
       }
       .mobile-row {
         display: flex;
@@ -454,9 +517,13 @@ export class StockSales {
     }));
   });
 
-  async openAddDialog(): Promise<void> {
+  getLinkedAssetName(assetId: string): string | undefined {
+    return this.store.assets().find((a) => a.id === assetId)?.name;
+  }
+
+  async openAddDialog(preselectedAssetId?: string): Promise<void> {
     const dialogRef = this.dialog.open(StockSaleDialog, {
-      data: {},
+      data: { preselectedAssetId },
       autoFocus: 'first-tabbable',
     });
     const result = await firstValueFrom(dialogRef.afterClosed());

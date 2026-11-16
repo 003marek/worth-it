@@ -114,7 +114,8 @@
 
 .simulator-card,
 .waterfall-card,
-.milestones-card {
+.milestones-card,
+.vests-card {
   border-radius: 16px;
   background-color: var(--mat-sys-surface-container);
   border: 1px solid var(--mat-sys-outline-variant);
@@ -415,6 +416,121 @@
       font-size: 0.75rem;
       color: var(--mat-sys-on-surface-variant);
       font-style: italic;
+    }
+  }
+}
+
+.vests-card {
+  .vests-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+
+    .vests-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .vests-icon {
+        color: var(--mat-sys-tertiary);
+      }
+
+      h3 {
+        margin: 0;
+        font-size: 1.125rem;
+        font-weight: 600;
+      }
+    }
+
+    .vests-count-chip {
+      background-color: var(--mat-sys-tertiary-container);
+      color: var(--mat-sys-on-tertiary-container);
+      font-weight: 600;
+      font-size: 0.75rem;
+    }
+  }
+
+  .vests-assumptions-callout {
+    background-color: var(--mat-sys-surface-container-high);
+    border: 1px dashed var(--mat-sys-tertiary);
+    border-radius: 12px;
+    margin-bottom: 16px;
+
+    .assumptions-content {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+    }
+
+    .assumptions-icon {
+      color: var(--mat-sys-tertiary);
+      font-size: 1.25rem;
+      width: 1.25rem;
+      height: 1.25rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .assumptions-text {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      .assumption-p {
+        margin: 0;
+        font-size: 0.8125rem;
+        color: var(--mat-sys-on-surface);
+        line-height: 1.4;
+      }
+    }
+  }
+
+  .vests-timeline-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .vest-milestone-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background-color: var(--mat-sys-surface-container-low);
+    border-radius: 8px;
+    border-left: 3px solid var(--mat-sys-tertiary);
+
+    .milestone-bullet {
+      color: var(--mat-sys-tertiary);
+      font-size: 0.875rem;
+    }
+
+    .milestone-date {
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: var(--mat-sys-on-surface);
+      font-variant-numeric: tabular-nums;
+      min-width: 95px;
+    }
+
+    .milestone-label {
+      flex: 1;
+      font-size: 0.875rem;
+      color: var(--mat-sys-on-surface-variant);
+    }
+
+    .milestone-amount {
+      font-style: italic;
+      color: var(--mat-sys-tertiary);
+      font-weight: 600;
+      font-size: 0.9375rem;
+      font-variant-numeric: tabular-nums;
+      font-family: 'Roboto Mono', monospace;
+      text-align: right;
     }
   }
 }

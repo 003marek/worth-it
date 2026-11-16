@@ -2,14 +2,22 @@ import 'fake-indexeddb/auto';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { submit } from '@angular/forms/signals';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
-import { of } from 'rxjs';
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { BehaviorSubject, of } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FinancialCalculatorService } from '../../core/services/financial-calculator.service';
+import { MarketDataError } from '../../core/services/market-data/market-data.error';
 import { StorageService } from '../../core/services/storage.service';
 import { WorthItStore } from '../../core/stores/worth-it.store';
-import { Assets } from './assets';
+import { MarketStatusBadge } from '../../shared/components/market-status-badge/market-status-badge';
 import { AssetFormDialog } from './asset-form-dialog';
 import { AssetHistoryDialog } from './asset-history-dialog';
+import { Assets } from './assets';
+import { EmployerStockDetail } from './employer-stock/employer-stock-detail';
+import { EmployerStockFormDialog } from './employer-stock/employer-stock-form-dialog';
+import { GrantEditorDialog } from './employer-stock/grant-editor-dialog';
+import { VestedBaselineDialog } from './employer-stock/vested-baseline-dialog';
+import { VestingTimeline } from './employer-stock/vesting-timeline';
 import { UpdateBalanceDialog } from './update-balance-dialog';
 
 describe('Assets Feature', () => {
@@ -19,8 +27,20 @@ describe('Assets Feature', () => {
 
   beforeEach(async () => {
     TestBed.configureTestingModule({
-      imports: [Assets, AssetFormDialog, UpdateBalanceDialog, AssetHistoryDialog],
+      imports: [
+        Assets,
+        AssetFormDialog,
+        UpdateBalanceDialog,
+        AssetHistoryDialog,
+        MarketStatusBadge,
+        EmployerStockFormDialog,
+        GrantEditorDialog,
+        VestedBaselineDialog,
+        VestingTimeline,
+        EmployerStockDetail,
+      ],
       providers: [
+        provideRouter([]),
         StorageService,
         FinancialCalculatorService,
         WorthItStore,
@@ -398,6 +418,443 @@ describe('Assets Feature', () => {
       await component['onToggleGoalEligible'](asset);
 
       expect(store.assets()[0].isGoalEligible).toBe(true);
+    });
+  });
+
+  describe('6. MarketStatusBadge Component (UX §3.1)', () => {
+    it('renders live, cached, stale, manual, and missing statuses accurately', () => {
+      const fixture = TestBed.createComponent(MarketStatusBadge);
+
+      fixture.componentRef.setInput('status', 'live');
+      fixture.componentRef.setInput('source', 'twelve_data');
+      fixture.componentRef.setInput('symbolOrPair', 'GOOGL');
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.textContent).toContain('GOOGL · Twelve Data · live');
+      expect(el.querySelector('.status-live')).toBeTruthy();
+
+      fixture.componentRef.setInput('status', 'cached');
+      fixture.componentRef.setInput('source', 'nbp');
+      fixture.componentRef.setInput('symbolOrPair', 'USD → PLN');
+      fixture.componentRef.setInput(
+        'asOf',
+        new Date(Date.now() - 2 * 3600_000).toISOString()
+      );
+      fixture.detectChanges();
+      expect(el.textContent).toContain('USD → PLN · NBP · 2 h ago');
+      expect(el.querySelector('.status-cached')).toBeTruthy();
+
+      fixture.componentRef.setInput('status', 'stale');
+      fixture.componentRef.setInput('source', 'twelve_data');
+      fixture.componentRef.setInput('symbolOrPair', 'GOOGL');
+      fixture.componentRef.setInput(
+        'asOf',
+        new Date(Date.now() - 4 * 86400_000).toISOString()
+      );
+      fixture.detectChanges();
+      expect(el.textContent).toContain('GOOGL · Twelve Data · 4 d ago');
+      expect(el.querySelector('.status-stale')).toBeTruthy();
+
+      fixture.componentRef.setInput('status', 'manual');
+      fixture.componentRef.setInput('source', 'manual');
+      fixture.componentRef.setInput('symbolOrPair', 'GOOGL');
+      fixture.detectChanges();
+      expect(el.textContent).toContain('GOOGL · Manual price');
+      expect(el.querySelector('.status-manual')).toBeTruthy();
+
+      fixture.componentRef.setInput('status', 'missing');
+      fixture.detectChanges();
+      expect(el.textContent).toContain('Missing price · Tap to fix');
+      expect(el.querySelector('.status-missing')).toBeTruthy();
+    });
+  });
+
+  describe('7. EmployerStockFormDialog (UX Screen 2 & §3.3)', () => {
+    it('looks up ticker, auto-fills name and currency, and saves employer_stock asset', async () => {
+      const mockDialogRef = { close: vi.fn() };
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        imports: [EmployerStockFormDialog],
+        providers: [
+          provideRouter([]),
+          StorageService,
+          FinancialCalculatorService,
+          WorthItStore,
+          { provide: MatDialogRef, useValue: mockDialogRef },
+          { provide: MAT_DIALOG_DATA, useValue: {} },
+        ],
+      });
+
+      const dialogStore = TestBed.inject(WorthItStore);
+      await dialogStore.loadAll();
+      vi.spyOn(dialogStore, 'lookupTicker').mockResolvedValue({
+        symbol: 'GOOGL',
+        name: 'Alphabet Inc.',
+        currency: 'USD',
+        price: 185.5,
+        exchange: 'NASDAQ',
+        fetchedAt: new Date().toISOString(),
+      });
+
+      const fixture = TestBed.createComponent(EmployerStockFormDialog);
+      fixture.detectChanges();
+      const instance = fixture.componentInstance;
+
+      instance['model'].update((m) => ({ ...m, tickerSymbol: 'googl' }));
+      await instance['onLookupTicker']();
+      fixture.detectChanges();
+
+      expect(dialogStore.lookupTicker).toHaveBeenCalledWith('GOOGL');
+      expect(instance['model']().name).toBe('Alphabet Inc.');
+      expect(instance['model']().currency).toBe('USD');
+      expect(instance['quotePreview']()?.price).toBe(185.5);
+
+      await submit(instance['stockForm']);
+
+      expect(dialogStore.employerStockAssets()).toHaveLength(1);
+      expect(dialogStore.employerStockAssets()[0].name).toBe('Alphabet Inc.');
+      expect(dialogStore.employerStockAssets()[0].employerStock?.tickerSymbol).toBe(
+        'GOOGL'
+      );
+      expect(mockDialogRef.close).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Alphabet Inc.',
+          tickerSymbol: 'GOOGL',
+          currency: 'USD',
+        })
+      );
+    });
+
+    it('surfaces inline error feedback and reveals manual fallbacks on lookup failure', async () => {
+      const mockDialogRef = { close: vi.fn() };
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        imports: [EmployerStockFormDialog],
+        providers: [
+          provideRouter([]),
+          StorageService,
+          FinancialCalculatorService,
+          WorthItStore,
+          { provide: MatDialogRef, useValue: mockDialogRef },
+          { provide: MAT_DIALOG_DATA, useValue: {} },
+        ],
+      });
+
+      const dialogStore = TestBed.inject(WorthItStore);
+      await dialogStore.loadAll();
+      vi.spyOn(dialogStore, 'lookupTicker').mockRejectedValue(
+        new MarketDataError('no_api_key', 'Missing API key')
+      );
+
+      const fixture = TestBed.createComponent(EmployerStockFormDialog);
+      fixture.detectChanges();
+      const instance = fixture.componentInstance;
+
+      instance['model'].update((m) => ({
+        ...m,
+        tickerSymbol: 'MSFT',
+        name: 'Microsoft Corp.',
+      }));
+      await instance['onLookupTicker']();
+      fixture.detectChanges();
+
+      expect(instance['lookupError']()?.kind).toBe('no_api_key');
+      expect(instance['showManualFallbacks']()).toBe(true);
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+        'Twelve Data API key not configured in Settings.'
+      );
+    });
+  });
+
+  describe('8. GrantEditorDialog (UX Screen 4 & §6)', () => {
+    it('validates tranche sum mismatch, date ordering, and confirms before overwriting customized schedule', async () => {
+      const asset = await store.addAsset({
+        name: 'Alphabet Inc.',
+        type: 'employer_stock',
+        currency: 'USD',
+        employerStock: { tickerSymbol: 'GOOGL', manualPrice: 180, manualFxRate: 4 },
+      });
+
+      const mockDialogRef = { close: vi.fn() };
+
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        imports: [GrantEditorDialog],
+        providers: [
+          StorageService,
+          FinancialCalculatorService,
+          WorthItStore,
+          { provide: MatDialogRef, useValue: mockDialogRef },
+          { provide: MAT_DIALOG_DATA, useValue: { assetId: asset.id } },
+        ],
+      });
+
+      const dialogStore = TestBed.inject(WorthItStore);
+      await dialogStore.loadAll();
+
+      const fixture = TestBed.createComponent(GrantEditorDialog);
+      fixture.detectChanges();
+      const instance = fixture.componentInstance;
+      const openSpy = vi
+        .spyOn(instance['dialog'], 'open')
+        .mockReturnValue({ afterClosed: () => of(true) } as unknown as MatDialogRef<unknown>);
+
+      // Initial generated schedule is valid (48 shares over 48 months with 12m cliff)
+      expect(instance['grantForm']().valid()).toBe(true);
+      expect(instance['isAllocationExact']()).toBe(true);
+
+      // Edit first tranche shares to create a sum mismatch
+      instance['updateTrancheShares'](0, 99);
+      fixture.detectChanges();
+
+      expect(instance['model']().isScheduleCustomized).toBe(true);
+      expect(instance['isAllocationExact']()).toBe(false);
+      expect(instance['grantForm']().valid()).toBe(false);
+      expect(
+        instance['grantForm'].tranches().errors().some((e) => e.kind === 'sum_mismatch')
+      ).toBe(true);
+
+      // Regenerate schedule -> should prompt ConfirmDialog because isScheduleCustomized is true
+      await instance['onGenerateSchedule']();
+      fixture.detectChanges();
+
+      expect(openSpy).toHaveBeenCalled();
+      expect(instance['model']().isScheduleCustomized).toBe(false);
+      expect(instance['grantForm']().valid()).toBe(true);
+
+      // Submit valid grant
+      instance['model'].update((m) => ({ ...m, name: '2026 Annual Grant' }));
+      await submit(instance['grantForm']);
+
+      expect(dialogStore.stockGrants()).toHaveLength(1);
+      expect(dialogStore.stockGrants()[0].name).toBe('2026 Annual Grant');
+      expect(mockDialogRef.close).toHaveBeenCalled();
+    });
+  });
+
+  describe('9. VestedBaselineDialog (UX Screen 5)', () => {
+    it('sets and clears vested shares baseline with live preview', async () => {
+      store.refreshToday('2026-06-01');
+      const asset = await store.addAsset({
+        name: 'Alphabet Inc.',
+        type: 'employer_stock',
+        currency: 'USD',
+        employerStock: { tickerSymbol: 'GOOGL', manualPrice: 180, manualFxRate: 4 },
+      });
+      await store.addStockGrant({
+        assetId: asset.id,
+        name: 'Initial Grant',
+        grantDate: '2026-01-01',
+        totalShares: 40,
+        schedule: { frequency: 'quarterly', durationMonths: 12, cliffMonths: 0 },
+        tranches: [
+          { id: 't1', vestDate: '2026-04-01', shares: 10 },
+          { id: 't2', vestDate: '2026-07-01', shares: 10 },
+          { id: 't3', vestDate: '2026-10-01', shares: 10 },
+          { id: 't4', vestDate: '2027-01-01', shares: 10 },
+        ],
+        isScheduleCustomized: false,
+      });
+
+      const mockDialogRef = { close: vi.fn() };
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        imports: [VestedBaselineDialog],
+        providers: [
+          StorageService,
+          FinancialCalculatorService,
+          WorthItStore,
+          { provide: MatDialogRef, useValue: mockDialogRef },
+          { provide: MAT_DIALOG_DATA, useValue: { asset } },
+        ],
+      });
+
+      const dialogStore = TestBed.inject(WorthItStore);
+      await dialogStore.loadAll();
+      dialogStore.refreshToday('2026-06-01');
+
+      const fixture = TestBed.createComponent(VestedBaselineDialog);
+      fixture.detectChanges();
+      const instance = fixture.componentInstance;
+
+      instance['model'].set({
+        vestedSharesBaseline: 25,
+        vestedSharesBaselineDate: '2026-06-01',
+      });
+      fixture.detectChanges();
+
+      expect(instance['previewHeldSharesToday']()).toBe(25);
+      expect(instance['futureSharesAfterBaseline']()).toBe(30);
+
+      await submit(instance['baselineForm']);
+
+      const updatedAsset = dialogStore.assets().find((a) => a.id === asset.id);
+      expect(updatedAsset?.employerStock?.vestedSharesBaseline).toBe(25);
+      expect(updatedAsset?.employerStock?.vestedSharesBaselineDate).toBe('2026-06-01');
+      expect(mockDialogRef.close).toHaveBeenCalledWith({
+        action: 'saved',
+        vestedSharesBaseline: 25,
+        vestedSharesBaselineDate: '2026-06-01',
+      });
+    });
+  });
+
+  describe('10. EmployerStockDetail & VestingTimeline (UX Screen 3 & §5)', () => {
+    it('renders hero summary, baseline banner, vesting timeline, collapsible grants, and linked sales', async () => {
+      store.refreshToday('2026-06-01');
+      const asset = await store.addAsset({
+        name: 'Alphabet Inc.',
+        type: 'employer_stock',
+        currency: 'USD',
+        isGoalEligible: true,
+        employerStock: {
+          tickerSymbol: 'GOOGL',
+          manualPrice: 200,
+          manualFxRate: 4,
+          vestedSharesBaseline: 15,
+          vestedSharesBaselineDate: '2026-05-01',
+        },
+      });
+
+      await store.addStockGrant({
+        assetId: asset.id,
+        name: '2026 RSU Award',
+        grantDate: '2026-01-01',
+        totalShares: 20,
+        schedule: { frequency: 'quarterly', durationMonths: 6, cliffMonths: 0 },
+        tranches: [
+          { id: 'tr1', vestDate: '2026-04-01', shares: 10 },
+          { id: 'tr2', vestDate: '2026-07-01', shares: 10 },
+        ],
+        isScheduleCustomized: false,
+      });
+
+      await store.addStockSale({
+        sourceAssetId: asset.id,
+        companyOrTicker: 'GOOGL',
+        saleDate: '2026-05-15',
+        sharesSold: 3,
+        pricePerShare: 200,
+        currency: 'USD',
+        grossValue: 600,
+        plnEquivalent: 2400,
+      });
+
+      const paramMap$ = new BehaviorSubject(convertToParamMap({ assetId: asset.id }));
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        imports: [EmployerStockDetail],
+        providers: [
+          provideRouter([]),
+          StorageService,
+          FinancialCalculatorService,
+          WorthItStore,
+          {
+            provide: ActivatedRoute,
+            useValue: {
+              paramMap: paramMap$.asObservable(),
+              snapshot: { paramMap: convertToParamMap({ assetId: asset.id }) },
+            },
+          },
+        ],
+      });
+
+      const detailStore = TestBed.inject(WorthItStore);
+      await detailStore.loadAll();
+      detailStore.refreshToday('2026-06-01');
+
+      const fixture = TestBed.createComponent(EmployerStockDetail);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.textContent).toContain('Alphabet Inc.');
+      expect(el.textContent).toContain('GOOGL');
+      // Held shares = baseline 15 - 3 sold after baseline = 12 sh
+      expect(el.textContent).toContain('12 sh');
+      // Unvested = 10 sh
+      expect(el.textContent).toContain('10 sh');
+      // Active baseline banner
+      expect(el.querySelector('.baseline-active-banner')).toBeTruthy();
+      // Vesting timeline rendered
+      expect(el.querySelector('app-vesting-timeline')).toBeTruthy();
+      // Grant expansion panel rendered
+      expect(el.textContent).toContain('2026 RSU Award');
+      // Linked sale rendered
+      expect(el.textContent).toContain('-3 sh');
+    });
+  });
+
+  describe('11. Assets List — Employer Stock Card & Dialog Delegation (UX Screen 1)', () => {
+    it('renders employer_stock card with held shares, unvested pipeline, next vest pill, and market status badge', async () => {
+      store.refreshToday('2026-06-01');
+      const asset = await store.addAsset({
+        name: 'Alphabet Inc.',
+        type: 'employer_stock',
+        currency: 'USD',
+        isGoalEligible: true,
+        employerStock: {
+          tickerSymbol: 'GOOGL',
+          manualPrice: 150,
+          manualFxRate: 4,
+        },
+      });
+
+      await store.addStockGrant({
+        assetId: asset.id,
+        name: '2026 Grant',
+        grantDate: '2026-01-01',
+        totalShares: 24,
+        schedule: { frequency: 'quarterly', durationMonths: 6, cliffMonths: 0 },
+        tranches: [
+          { id: 't1', vestDate: '2026-04-01', shares: 12 },
+          { id: 't2', vestDate: '2026-07-01', shares: 12 },
+        ],
+        isScheduleCustomized: false,
+      });
+
+      const fixture = TestBed.createComponent(Assets);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const el = fixture.nativeElement as HTMLElement;
+      const stockCard = el.querySelector('.employer-stock-card');
+      expect(stockCard).toBeTruthy();
+      expect(stockCard?.textContent).toContain('Alphabet Inc.');
+      expect(stockCard?.textContent).toContain('12 sh');
+      expect(stockCard?.textContent).toContain('Vested & held');
+      expect(stockCard?.textContent).toContain('Unvested:');
+      expect(stockCard?.textContent).toContain('Manage grants (1)');
+      expect(stockCard?.querySelector('app-market-status-badge')).toBeTruthy();
+    });
+
+    it('delegates to EmployerStockFormDialog when employer_stock type is selected in AssetFormDialog', () => {
+      const mockDialogRef = { close: vi.fn() };
+
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        imports: [AssetFormDialog],
+        providers: [
+          { provide: MatDialogRef, useValue: mockDialogRef },
+          { provide: MAT_DIALOG_DATA, useValue: {} },
+        ],
+      });
+
+      const fixture = TestBed.createComponent(AssetFormDialog);
+      fixture.detectChanges();
+      const instance = fixture.componentInstance;
+      const openSpy = vi
+        .spyOn(instance['dialog']!, 'open')
+        .mockReturnValue({ afterClosed: () => of(undefined) } as unknown as MatDialogRef<unknown>);
+
+      instance['onTypeSelected']('employer_stock');
+
+      expect(mockDialogRef.close).toHaveBeenCalled();
+      expect(openSpy).toHaveBeenCalledWith(
+        EmployerStockFormDialog,
+        expect.objectContaining({ width: '520px' })
+      );
     });
   });
 });

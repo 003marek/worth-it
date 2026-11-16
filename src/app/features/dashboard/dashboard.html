@@ -327,6 +327,24 @@
   <!-- LAYOUT B: FINANCIAL OVERVIEW DASHBOARD -->
   @if (currentLayout() === 'financial_overview') {
     <div class="financial-overview-layout">
+      <!-- Unvested Stock Pipeline Banner (spec §9, UX Screen 8) -->
+      @if (totalUnvestedPipelineInBase() > 0) {
+        <mat-card appearance="outlined" class="unvested-summary-banner projected" role="note">
+          <mat-card-content class="unvested-banner-content">
+            <mat-icon class="banner-icon">trending_up</mat-icon>
+            <div class="banner-body">
+              <strong class="banner-title">
+                Unvested Employer Stock Pipeline (Projected Only)
+              </strong>
+              <p class="banner-text">
+                You have an estimated <em>{{ totalUnvestedPipelineInBase() | money:currency() }}</em> in unvested employer stock across future vesting schedules.
+                Per Worth It accounting principles, unvested shares are projected inflows and are never counted in your actual wealth today.
+              </p>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      }
+
       <!-- 1. Wealth Breakdown Grid -->
       <section class="metrics-grid">
         <mat-card class="metric-card" appearance="outlined">
@@ -449,7 +467,7 @@
             @if (store.assets().length > 0) {
               <mat-list class="assets-list">
                 @for (asset of assetBreakdown(); track asset.id; let last = $last) {
-                  <mat-list-item class="asset-item">
+                  <mat-list-item class="asset-item" [class.stock-asset-item]="asset.type === 'employer_stock'">
                     <span matListItemTitle class="asset-name">{{ asset.name }}</span>
                     <span matListItemLine class="asset-meta">
                       <span>{{ formatAssetType(asset.type) }}</span>
@@ -461,10 +479,30 @@
                         {{ asset.isGoalEligible ? 'Goal-eligible' : 'Excluded' }}
                       </span>
                     </span>
-                    <div matListItemMeta class="asset-right">
-                      <span class="asset-balance">
-                        {{ asset.balance | money:asset.currency }}
+                    @if (asset.type === 'employer_stock' && asset.unvestedShares > 0) {
+                      <span matListItemLine class="asset-unvested-pipeline projected">
+                        <mat-icon class="pipeline-icon">schedule</mat-icon>
+                        <span>
+                          Unvested pipeline (projected only):
+                          <em>{{ asset.unvestedShares }} sh (est. {{ asset.unvestedValueInBase | money:currency() }})</em>
+                        </span>
+                        @if (asset.nextVest) {
+                          <span class="next-vest-badge">
+                            &bull; Next: {{ asset.nextVest.shares }} sh on {{ asset.nextVest.date | date:'dd MMM yyyy' }}
+                          </span>
+                        }
                       </span>
+                    }
+                    <div matListItemMeta class="asset-right">
+                      @if (asset.type === 'employer_stock') {
+                        <span class="asset-balance">
+                          {{ asset.heldShares ?? 0 }} sh ({{ asset.baseValue | money:currency() }})
+                        </span>
+                      } @else {
+                        <span class="asset-balance">
+                          {{ asset.balance | money:asset.currency }}
+                        </span>
+                      }
                       <div class="asset-percent">
                         {{ asset.percentOfTotal | number:'1.1-1' }}% of total
                       </div>

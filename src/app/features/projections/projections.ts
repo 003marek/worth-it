@@ -85,6 +85,15 @@ export class Projections {
     () => this.store.monthlySurplusSummary().monthlySurplus
   );
 
+  readonly projectedInflows = computed(() => this.store.projectedInflows());
+  readonly projectionSummary = computed(() => this.store.projectionSummary());
+  readonly assumptions = computed(
+    () => this.store.projectionSummary().assumptions ?? []
+  );
+  readonly projectedInflowsTotal = computed(() =>
+    this.projectedInflows().reduce((sum, item) => sum + item.amountInBase, 0)
+  );
+
   /** 1. Signal Forms model signal for interactive What-If simulation */
   readonly simModel = signal<WhatIfSimulationModel>({
     extraMonthlySavings: 0,

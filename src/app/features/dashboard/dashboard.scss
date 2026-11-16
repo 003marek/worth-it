@@ -544,5 +544,77 @@
       color: var(--mat-sys-on-surface-variant);
       text-align: right;
     }
+
+    .asset-unvested-pipeline {
+      display: flex !important;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.75rem;
+      color: var(--mat-sys-tertiary) !important;
+      margin-top: 4px;
+
+      .pipeline-icon {
+        font-size: 0.875rem;
+        width: 0.875rem;
+        height: 0.875rem;
+      }
+
+      em {
+        font-style: italic;
+        font-weight: 600;
+        font-family: 'Roboto Mono', monospace;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .next-vest-badge {
+        color: var(--mat-sys-on-surface-variant);
+      }
+    }
+  }
+}
+
+.unvested-summary-banner {
+  background-color: var(--mat-sys-surface-container-high);
+  border: 1px dashed var(--mat-sys-tertiary);
+  border-radius: 12px;
+  margin-bottom: 16px;
+
+  .unvested-banner-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .banner-icon {
+    color: var(--mat-sys-tertiary);
+    font-size: 1.5rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  .banner-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .banner-title {
+    font-size: 0.9375rem;
+    color: var(--mat-sys-on-surface);
+  }
+
+  .banner-text {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--mat-sys-on-surface-variant);
+    line-height: 1.45;
+
+    em {
+      color: var(--mat-sys-tertiary);
+      font-style: italic;
+      font-weight: 600;
+    }
   }
 }

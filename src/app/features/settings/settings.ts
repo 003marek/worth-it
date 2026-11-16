@@ -11,6 +11,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { form, FormField, FormRoot, max, min, required } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatChipsModule } from '@angular/material/chips';
 import { MatRipple } from '@angular/material/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatDividerModule } from '@angular/material/divider';
@@ -30,6 +31,7 @@ import {
   DashboardLayout,
   FinancialCushionSettings,
 } from '../../core/models/worth-it.model';
+import { MarketDataError } from '../../core/services/market-data/market-data.error';
 import { StorageService } from '../../core/services/storage.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { WorthItStore } from '../../core/stores/worth-it.store';
@@ -48,6 +50,10 @@ export interface PreferencesFormModel {
   theme: AppTheme;
 }
 
+export interface ApiKeyFormModel {
+  twelveDataApiKey: string;
+}
+
 @Component({
   selector: 'app-settings',
   standalone: true,
@@ -55,6 +61,7 @@ export interface PreferencesFormModel {
   imports: [
     MatCardModule,
     MatButtonModule,
+    MatChipsModule,
     MatIconModule,
     MatInputModule,
     MatListModule,
@@ -267,6 +274,104 @@ export interface PreferencesFormModel {
               >
                 Save Preferences
               </button>
+            </div>
+          </form>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- 2.5. Twelve Data API Key Configuration Card (spec §12, UX Screen 7) -->
+      <mat-card class="settings-card api-key-card">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="card-avatar-icon">vpn_key</mat-icon>
+          <mat-card-title>Twelve Data API Key</mat-card-title>
+          <mat-card-subtitle>Live market prices for employer stock tickers</mat-card-subtitle>
+        </mat-card-header>
+
+        <mat-card-content class="card-content">
+          <form [formRoot]="apiKeyForm" class="settings-form">
+            <div class="api-key-input-row">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Twelve Data API Key</mat-label>
+                <input
+                  matInput
+                  [type]="hideApiKey() ? 'password' : 'text'"
+                  [formField]="apiKeyForm.twelveDataApiKey"
+                  placeholder="Enter your Twelve Data API key"
+                  autocomplete="off"
+                />
+                <button
+                  mat-icon-button
+                  matSuffix
+                  type="button"
+                  (click)="hideApiKey.set(!hideApiKey())"
+                  [attr.aria-label]="hideApiKey() ? 'Show API key' : 'Hide API key'"
+                  [attr.aria-pressed]="!hideApiKey()"
+                >
+                  <mat-icon>{{ hideApiKey() ? 'visibility' : 'visibility_off' }}</mat-icon>
+                </button>
+                <mat-hint>Used to fetch live market prices for employer stock tickers.</mat-hint>
+                @for (error of apiKeyForm.twelveDataApiKey().errors(); track $index) {
+                  <mat-error>{{ error.message }}</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            <div class="api-key-actions-row">
+              <div class="status-chip-container">
+                @if (apiKeyTestState().status !== 'idle') {
+                  <mat-chip-set>
+                    <mat-chip
+                      class="api-key-status-chip"
+                      [class.valid-chip]="apiKeyTestState().status === 'valid'"
+                      [class.invalid-chip]="apiKeyTestState().status === 'invalid' || apiKeyTestState().status === 'offline' || apiKeyTestState().status === 'error'"
+                      [class.testing-chip]="apiKeyTestState().status === 'testing'"
+                      highlighted
+                    >
+                      <mat-icon matChipAvatar [class.spinning-icon]="apiKeyTestState().status === 'testing'">
+                        @if (apiKeyTestState().status === 'testing') {
+                          sync
+                        } @else if (apiKeyTestState().status === 'valid') {
+                          check_circle
+                        } @else {
+                          error
+                        }
+                      </mat-icon>
+                      <span>
+                        {{ apiKeyTestState().status === 'testing' ? 'Testing key...' : apiKeyTestState().message }}
+                      </span>
+                    </mat-chip>
+                  </mat-chip-set>
+                }
+              </div>
+
+              <div class="buttons-group">
+                <button
+                  mat-stroked-button
+                  type="button"
+                  class="test-key-btn"
+                  (click)="testApiKey()"
+                  [disabled]="apiKeyTestState().status === 'testing'"
+                >
+                  <mat-icon>network_check</mat-icon>
+                  Test Key
+                </button>
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="apiKeyForm().submitting()"
+                >
+                  Save API Key
+                </button>
+              </div>
+            </div>
+
+            <!-- Privacy Notice per UX Screen 7 -->
+            <div class="api-key-privacy-notice" role="note">
+              <mat-icon class="privacy-icon">shield</mat-icon>
+              <span>
+                Your API key is stored locally in IndexedDB. It is never uploaded to any external server other than twelvedata.com.
+              </span>
             </div>
           </form>
         </mat-card-content>
@@ -630,6 +735,59 @@ export interface PreferencesFormModel {
         justify-content: flex-end;
         margin-top: 8px;
       }
+      .api-key-actions-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 4px;
+      }
+      .buttons-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+      }
+      .api-key-status-chip {
+        font-weight: 500;
+        font-size: 0.8125rem;
+      }
+      .valid-chip {
+        background-color: var(--mat-sys-primary-container) !important;
+        color: var(--mat-sys-on-primary-container) !important;
+      }
+      .invalid-chip {
+        background-color: var(--mat-sys-error-container) !important;
+        color: var(--mat-sys-on-error-container) !important;
+      }
+      .spinning-icon {
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      .api-key-privacy-notice {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+        font-size: 0.8125rem;
+        color: var(--mat-sys-on-surface-variant);
+        background-color: var(--mat-sys-surface-container);
+        padding: 8px 12px;
+        border-radius: 6px;
+        line-height: 1.4;
+      }
+      .privacy-icon {
+        font-size: 1.125rem;
+        width: 1.125rem;
+        height: 1.125rem;
+        color: var(--mat-sys-primary);
+        flex-shrink: 0;
+      }
       .quick-management-section {
         display: flex;
         flex-direction: column;
@@ -844,6 +1002,87 @@ export class Settings {
     }
   );
 
+  // --- Twelve Data API Key Form (spec §12, UX Screen 7) ---
+  readonly hideApiKey = signal(true);
+  readonly apiKeyTestState = signal<{
+    status: 'idle' | 'testing' | 'valid' | 'invalid' | 'offline' | 'error';
+    message?: string;
+  }>({ status: 'idle' });
+
+  readonly apiKeyModel = signal<ApiKeyFormModel>({
+    twelveDataApiKey: this.store.settings().twelveDataApiKey || '',
+  });
+
+  readonly apiKeyForm = form(
+    this.apiKeyModel,
+    () => {},
+    {
+      submission: {
+        action: async () => {
+          const key = this.apiKeyModel().twelveDataApiKey.trim();
+          await this.store.updateSettings({
+            twelveDataApiKey: key || undefined,
+          });
+          this.snackBar.open('Twelve Data API key saved', 'OK', {
+            duration: 3000,
+          });
+          return undefined;
+        },
+      },
+    }
+  );
+
+  async testApiKey(): Promise<void> {
+    const inputKey = this.apiKeyModel().twelveDataApiKey.trim();
+    if (inputKey !== (this.store.settings().twelveDataApiKey || '')) {
+      await this.store.updateSettings({
+        twelveDataApiKey: inputKey || undefined,
+      });
+    }
+
+    if (!inputKey) {
+      this.apiKeyTestState.set({
+        status: 'invalid',
+        message: 'Invalid API key. Check key and retry.',
+      });
+      return;
+    }
+
+    this.apiKeyTestState.set({ status: 'testing' });
+    try {
+      await this.store.lookupTicker('AAPL');
+      this.apiKeyTestState.set({
+        status: 'valid',
+        message: 'Valid key (AAPL quote received)',
+      });
+    } catch (err: unknown) {
+      if (err instanceof MarketDataError) {
+        if (err.kind === 'auth' || err.kind === 'no_api_key') {
+          this.apiKeyTestState.set({
+            status: 'invalid',
+            message: 'Invalid API key. Check key and retry.',
+          });
+        } else if (err.kind === 'network') {
+          this.apiKeyTestState.set({
+            status: 'offline',
+            message: 'Network offline. Connect and retry.',
+          });
+        } else {
+          this.apiKeyTestState.set({
+            status: 'error',
+            message: err.message || 'Invalid API key. Check key and retry.',
+          });
+        }
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.apiKeyTestState.set({
+          status: 'error',
+          message: msg || 'Error testing API key.',
+        });
+      }
+    }
+  }
+
   constructor() {
     // Keep form models in sync when store settings change externally (e.g. reload after import)
     effect(() => {
@@ -858,6 +1097,9 @@ export class Settings {
           baseCurrency: s.baseCurrency || 'PLN',
           defaultDashboard: s.defaultDashboard || 'goal_first',
           theme: s.theme || 'system',
+        });
+        this.apiKeyModel.set({
+          twelveDataApiKey: s.twelveDataApiKey || '',
         });
       });
     });

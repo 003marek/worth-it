@@ -1,16 +1,19 @@
 import 'fake-indexeddb/auto';
 import { TestBed } from '@angular/core/testing';
-import { StorageService, DEFAULT_SETTINGS } from './storage.service';
+import Dexie from 'dexie';
+import { StockGrant } from '../models/employer-stock.model';
+import { FxRate, MarketQuote } from '../models/market-data.model';
 import {
-  Goal,
   Asset,
   AssetBalanceHistory,
-  IncomeSource,
-  IncomeRecord,
   ExpenseCategory,
   ExpenseRecord,
+  Goal,
+  IncomeRecord,
+  IncomeSource,
   StockSale,
 } from '../models/worth-it.model';
+import { DEFAULT_SETTINGS, StorageService } from './storage.service';
 
 describe('StorageService', () => {
   let service: StorageService;
@@ -25,10 +28,12 @@ describe('StorageService', () => {
   });
 
   afterEach(async () => {
-    await service.clearAllData();
+    if (service.isOpen()) {
+      await service.clearAllData();
+    }
   });
 
-  it('should be created and have all required tables', () => {
+  it('should be created and have all required v1 + v2 tables', () => {
     expect(service).toBeTruthy();
     expect(service.goals).toBeDefined();
     expect(service.assets).toBeDefined();
@@ -38,7 +43,81 @@ describe('StorageService', () => {
     expect(service.expenseCategories).toBeDefined();
     expect(service.expenseRecords).toBeDefined();
     expect(service.stockSales).toBeDefined();
+    expect(service.stockGrants).toBeDefined();
+    expect(service.marketQuotes).toBeDefined();
+    expect(service.fxRates).toBeDefined();
     expect(service.settings).toBeDefined();
+  });
+
+  describe('Dexie v1 → v2 Migration', () => {
+    it('preserves v1 data when upgrading to version 2 and exposes new v2 stores', async () => {
+      service.close();
+      await Dexie.delete('WorthItDB');
+
+      // Open WorthItDB at version 1 only and seed v1 data
+      const v1Db = new Dexie('WorthItDB');
+      v1Db.version(1).stores({
+        goals: 'id, order, isCompleted, createdAt',
+        assets: 'id, type, currency, isGoalEligible, updatedAt',
+        assetHistory: 'id, assetId, date',
+        incomeSources: 'id, type, frequency, isEnabled',
+        incomeRecords: 'id, incomeSourceId, receivedDate, isActual',
+        expenseCategories: 'id, order, isEnabled',
+        expenseRecords: 'id, categoryId, date, isActual',
+        stockSales: 'id, companyOrTicker, saleDate',
+        settings: 'id',
+      });
+      await v1Db.open();
+
+      const v1Goal: Goal = {
+        id: 'v1-goal',
+        name: 'Pre-upgrade Goal',
+        targetAmount: 42000,
+        order: 1,
+        isCompleted: false,
+        createdAt: '2025-12-01T00:00:00.000Z',
+        updatedAt: '2025-12-01T00:00:00.000Z',
+      };
+      const v1Asset: Asset = {
+        id: 'v1-asset',
+        name: 'Pre-upgrade Bank',
+        type: 'bank_account',
+        currency: 'PLN',
+        balance: 15000,
+        isGoalEligible: true,
+        updatedAt: '2025-12-01T00:00:00.000Z',
+      };
+      await v1Db.table('goals').put(v1Goal);
+      await v1Db.table('assets').put(v1Asset);
+      await v1Db.table('settings').put({ ...DEFAULT_SETTINGS, baseCurrency: 'EUR' });
+      v1Db.close();
+
+      // Open with StorageService (version 2)
+      const upgraded = new StorageService();
+      await upgraded.open();
+
+      const migratedGoal = await upgraded.getGoal('v1-goal');
+      const migratedAsset = await upgraded.getAsset('v1-asset');
+      const migratedSettings = await upgraded.getSettings();
+
+      expect(migratedGoal).toEqual(v1Goal);
+      expect(migratedAsset).toEqual(v1Asset);
+      expect(migratedSettings.baseCurrency).toBe('EUR');
+
+      // New v2 tables work after upgrade
+      await upgraded.saveMarketQuote({
+        symbol: 'GOOGL',
+        price: 190,
+        currency: 'USD',
+        fetchedAt: '2026-04-01T10:00:00.000Z',
+      });
+      const quotes = await upgraded.getAllMarketQuotes();
+      expect(quotes).toHaveLength(1);
+      expect(quotes[0].symbol).toBe('GOOGL');
+
+      upgraded.close();
+      await service.open();
+    });
   });
 
   describe('Settings', () => {
@@ -55,10 +134,11 @@ describe('StorageService', () => {
       });
     });
 
-    it('should update partial settings', async () => {
+    it('should update partial settings including twelveDataApiKey', async () => {
       const updated = await service.updateSettings({
         baseCurrency: 'EUR',
         theme: 'dark',
+        twelveDataApiKey: 'secret-td-key',
         cushion: {
           isEnabled: false,
           averageMonthlyExpenses: 7000,
@@ -68,11 +148,12 @@ describe('StorageService', () => {
 
       expect(updated.baseCurrency).toBe('EUR');
       expect(updated.theme).toBe('dark');
+      expect(updated.twelveDataApiKey).toBe('secret-td-key');
       expect(updated.cushion.coverageMonths).toBe(12);
 
       const retrieved = await service.getSettings();
       expect(retrieved.baseCurrency).toBe('EUR');
-      expect(retrieved.theme).toBe('dark');
+      expect(retrieved.twelveDataApiKey).toBe('secret-td-key');
     });
   });
 
@@ -113,100 +194,272 @@ describe('StorageService', () => {
     });
   });
 
-  describe('Assets and Cascading History', () => {
-    const sampleAsset: Asset = {
-      id: 'a-1',
-      name: 'Checking Account',
-      type: 'bank_account',
-      currency: 'PLN',
-      balance: 10000,
+  describe('Assets, StockGrants, MarketQuotes, FxRates & Cascading Delete', () => {
+    const sampleStockAsset: Asset = {
+      id: 'a-stock',
+      name: 'Alphabet RSU',
+      type: 'employer_stock',
+      currency: 'USD',
+      balance: 0,
+      employerStock: {
+        tickerSymbol: 'GOOGL',
+        vestedSharesBaseline: 20,
+        vestedSharesBaselineDate: '2026-01-01',
+      },
       isGoalEligible: true,
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
 
     const sampleHistory: AssetBalanceHistory = {
       id: 'h-1',
-      assetId: 'a-1',
-      balance: 9500,
+      assetId: 'a-stock',
+      balance: 0,
       date: '2026-01-15',
     };
 
-    it('should save asset and retrieve history', async () => {
-      await service.saveAsset(sampleAsset);
-      await service.saveAssetHistory(sampleHistory);
+    const sampleGrant1: StockGrant = {
+      id: 'gr-1',
+      assetId: 'a-stock',
+      name: '2025 Grant',
+      grantDate: '2025-03-01',
+      totalShares: 40,
+      schedule: { frequency: 'quarterly', durationMonths: 12, cliffMonths: 0 },
+      tranches: [
+        { id: 't-1', vestDate: '2025-06-01', shares: 10 },
+        { id: 't-2', vestDate: '2025-09-01', shares: 10 },
+        { id: 't-3', vestDate: '2025-12-01', shares: 10 },
+        { id: 't-4', vestDate: '2026-03-01', shares: 10 },
+      ],
+      isScheduleCustomized: false,
+      createdAt: '2025-03-01T00:00:00.000Z',
+      updatedAt: '2025-03-01T00:00:00.000Z',
+    };
 
-      const history = await service.getAssetHistory('a-1');
-      expect(history.length).toBe(1);
-      expect(history[0].balance).toBe(9500);
+    const sampleGrant2: StockGrant = {
+      id: 'gr-2',
+      assetId: 'a-stock',
+      name: '2026 Grant',
+      grantDate: '2026-03-01',
+      totalShares: 20,
+      schedule: { frequency: 'annual', durationMonths: 12, cliffMonths: 0 },
+      tranches: [{ id: 't-5', vestDate: '2027-03-01', shares: 20 }],
+      isScheduleCustomized: false,
+      createdAt: '2026-03-01T00:00:00.000Z',
+      updatedAt: '2026-03-01T00:00:00.000Z',
+    };
+
+    it('should perform CRUD on stockGrants, marketQuotes, and fxRates', async () => {
+      await service.saveAsset(sampleStockAsset);
+      await service.saveStockGrant(sampleGrant2);
+      await service.saveStockGrant(sampleGrant1);
+
+      const allGrants = await service.getAllStockGrants();
+      expect(allGrants).toHaveLength(2);
+      expect(allGrants[0].id).toBe('gr-1');
+      expect(allGrants[1].id).toBe('gr-2');
+
+      const assetGrants = await service.getStockGrants('a-stock');
+      expect(assetGrants).toHaveLength(2);
+
+      await service.deleteStockGrant('gr-2');
+      expect(await service.getStockGrants('a-stock')).toHaveLength(1);
+
+      const quote: MarketQuote = {
+        symbol: 'googl',
+        price: 182.5,
+        currency: 'USD',
+        name: 'Alphabet Inc.',
+        exchange: 'NASDAQ',
+        fetchedAt: '2026-04-01T12:00:00.000Z',
+      };
+      await service.saveMarketQuote(quote);
+      const quotes = await service.getAllMarketQuotes();
+      expect(quotes).toHaveLength(1);
+      expect(quotes[0].symbol).toBe('GOOGL');
+      expect(quotes[0].price).toBe(182.5);
+
+      const fx: FxRate = {
+        pair: 'usd/pln',
+        from: 'usd',
+        to: 'pln',
+        rate: 3.98,
+        effectiveDate: '2026-04-01',
+        fetchedAt: '2026-04-01T12:00:00.000Z',
+      };
+      await service.saveFxRate(fx);
+      const rates = await service.getAllFxRates();
+      expect(rates).toHaveLength(1);
+      expect(rates[0].pair).toBe('USD/PLN');
+      expect(rates[0].rate).toBe(3.98);
     });
 
-    it('should cascade delete asset history when asset is deleted', async () => {
-      await service.saveAsset(sampleAsset);
+    it('should cascade delete assetHistory and stockGrants and clear sourceAssetId on linked stockSales when asset is deleted', async () => {
+      await service.saveAsset(sampleStockAsset);
       await service.saveAssetHistory(sampleHistory);
+      await service.saveStockGrant(sampleGrant1);
+      await service.saveStockGrant(sampleGrant2);
 
-      await service.deleteAsset('a-1');
+      const linkedSale: StockSale = {
+        id: 'sale-linked',
+        sourceAssetId: 'a-stock',
+        companyOrTicker: 'GOOGL',
+        saleDate: '2026-03-20',
+        sharesSold: 5,
+        pricePerShare: 180,
+        currency: 'USD',
+        grossValue: 900,
+      };
+      const otherSale: StockSale = {
+        id: 'sale-other',
+        sourceAssetId: 'other-asset',
+        companyOrTicker: 'MSFT',
+        saleDate: '2026-03-21',
+        sharesSold: 2,
+        pricePerShare: 420,
+        currency: 'USD',
+        grossValue: 840,
+      };
+      await service.saveStockSale(linkedSale);
+      await service.saveStockSale(otherSale);
 
-      const asset = await service.getAsset('a-1');
-      expect(asset).toBeUndefined();
+      await service.deleteAsset('a-stock');
 
-      const history = await service.getAssetHistory('a-1');
-      expect(history.length).toBe(0);
+      expect(await service.getAsset('a-stock')).toBeUndefined();
+      expect(await service.getAssetHistory('a-stock')).toHaveLength(0);
+      expect(await service.getStockGrants('a-stock')).toHaveLength(0);
+
+      // Sales are history and must be kept, with sourceAssetId cleared on linked sales
+      const allSales = await service.getAllStockSales();
+      expect(allSales).toHaveLength(2);
+      const updatedLinked = await service.getStockSale('sale-linked');
+      expect(updatedLinked).toBeDefined();
+      expect(updatedLinked?.sourceAssetId).toBeUndefined();
+      const untouchedOther = await service.getStockSale('sale-other');
+      expect(untouchedOther?.sourceAssetId).toBe('other-asset');
     });
   });
 
   describe('Demo Data & Clear Data', () => {
-    it('should seed demo data properly', async () => {
+    it('should seed demo data including employer_stock asset, 2 grants, baseline, linked sale, quote and USD/PLN rate', async () => {
       await service.seedDemoData(true);
 
       const goals = await service.getAllGoals();
       const assets = await service.getAllAssets();
-      const incomeSources = await service.getAllIncomeSources();
-      const expenseCategories = await service.getAllExpenseCategories();
+      const grants = await service.getAllStockGrants();
+      const quotes = await service.getAllMarketQuotes();
+      const fxRates = await service.getAllFxRates();
+      const sales = await service.getAllStockSales();
 
       expect(goals.length).toBeGreaterThan(0);
       expect(assets.length).toBeGreaterThan(0);
-      expect(incomeSources.length).toBeGreaterThan(0);
-      expect(expenseCategories.length).toBeGreaterThan(0);
+
+      const employerStock = assets.find((a) => a.type === 'employer_stock');
+      expect(employerStock).toBeDefined();
+      expect(employerStock?.employerStock?.tickerSymbol).toBe('GOOGL');
+      expect(employerStock?.employerStock?.vestedSharesBaseline).toBeDefined();
+      expect(employerStock?.employerStock?.vestedSharesBaselineDate).toBeDefined();
+
+      expect(grants).toHaveLength(2);
+      expect(grants.every((g) => g.assetId === employerStock?.id)).toBe(true);
+
+      expect(sales.some((s) => s.sourceAssetId === employerStock?.id)).toBe(true);
+      expect(quotes.some((q) => q.symbol === 'GOOGL')).toBe(true);
+      expect(fxRates.some((r) => r.pair === 'USD/PLN')).toBe(true);
 
       const hasData = await service.hasAnyData();
       expect(hasData).toBe(true);
     });
 
-    it('should clear all data and reset default settings', async () => {
+    it('should clear all data including v2 tables and reset default settings', async () => {
       await service.seedDemoData(true);
       await service.clearAllData();
 
-      const goals = await service.getAllGoals();
-      expect(goals.length).toBe(0);
+      expect(await service.getAllGoals()).toHaveLength(0);
+      expect(await service.getAllStockGrants()).toHaveLength(0);
+      expect(await service.getAllMarketQuotes()).toHaveLength(0);
+      expect(await service.getAllFxRates()).toHaveLength(0);
 
       const settings = await service.getSettings();
       expect(settings.id).toBe('default');
     });
   });
 
-  describe('Export and Import with Validation', () => {
-    it('should export all data to a valid JSON string', async () => {
+  describe('Export and Import (Backup v2 + v1 Compatibility)', () => {
+    it('should export all data at version 2 including stockGrants, marketQuotes, fxRates', async () => {
       await service.seedDemoData(true);
       const json = await service.exportAllData();
 
       expect(typeof json).toBe('string');
       const parsed = JSON.parse(json);
-      expect(parsed.version).toBe(1);
+      expect(parsed.version).toBe(2);
       expect(parsed.appName).toBe('Worth It');
       expect(parsed.data.goals.length).toBeGreaterThan(0);
       expect(parsed.data.assets.length).toBeGreaterThan(0);
+      expect(parsed.data.stockGrants.length).toBe(2);
+      expect(parsed.data.marketQuotes.length).toBe(1);
+      expect(parsed.data.fxRates.length).toBe(1);
     });
 
-    it('should import previously exported data accurately', async () => {
+    it('should import previously exported v2 data accurately', async () => {
       await service.seedDemoData(true);
       const exportedJson = await service.exportAllData();
 
       await service.clearAllData();
-      expect((await service.getAllGoals()).length).toBe(0);
+      expect((await service.getAllStockGrants()).length).toBe(0);
 
       await service.importAllData(exportedJson);
       expect((await service.getAllGoals()).length).toBeGreaterThan(0);
       expect((await service.getAllAssets()).length).toBeGreaterThan(0);
+      expect((await service.getAllStockGrants()).length).toBe(2);
+      expect((await service.getAllMarketQuotes()).length).toBe(1);
+      expect((await service.getAllFxRates()).length).toBe(1);
+    });
+
+    it('should accept a v1 backup payload (missing stockGrants, marketQuotes, fxRates arrays)', async () => {
+      const v1Backup = {
+        version: 1,
+        exportedAt: '2026-01-10T00:00:00.000Z',
+        appName: 'Worth It',
+        data: {
+          goals: [
+            {
+              id: 'g-v1',
+              name: 'V1 Goal',
+              targetAmount: 10000,
+              order: 1,
+              isCompleted: false,
+              createdAt: '2026-01-01T00:00:00.000Z',
+              updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+          ],
+          assets: [
+            {
+              id: 'a-v1',
+              name: 'V1 Bank',
+              type: 'bank_account',
+              currency: 'PLN',
+              balance: 5000,
+              isGoalEligible: true,
+              updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+          ],
+          assetHistory: [],
+          incomeSources: [],
+          incomeRecords: [],
+          expenseCategories: [],
+          expenseRecords: [],
+          stockSales: [],
+          settings: [DEFAULT_SETTINGS],
+        },
+      };
+
+      await service.importAllData(JSON.stringify(v1Backup));
+
+      expect(await service.getAllGoals()).toHaveLength(1);
+      expect(await service.getAllAssets()).toHaveLength(1);
+      expect(await service.getAllStockGrants()).toEqual([]);
+      expect(await service.getAllMarketQuotes()).toEqual([]);
+      expect(await service.getAllFxRates()).toEqual([]);
     });
 
     it('should reject invalid JSON syntax', async () => {
@@ -217,7 +470,7 @@ describe('StorageService', () => {
 
     it('should reject when AssetBalanceHistory references non-existent assetId', async () => {
       const invalidData = {
-        version: 1,
+        version: 2,
         appName: 'Worth It',
         data: {
           goals: [],
@@ -245,6 +498,9 @@ describe('StorageService', () => {
           expenseCategories: [],
           expenseRecords: [],
           stockSales: [],
+          stockGrants: [],
+          marketQuotes: [],
+          fxRates: [],
           settings: [DEFAULT_SETTINGS],
         },
       };
@@ -252,6 +508,43 @@ describe('StorageService', () => {
       await expect(
         service.importAllData(JSON.stringify(invalidData))
       ).rejects.toThrow(/references non-existent assetId "non-existent-asset-999"/);
+    });
+
+    it('should reject when StockGrant references non-existent assetId', async () => {
+      const invalidData = {
+        version: 2,
+        appName: 'Worth It',
+        data: {
+          goals: [],
+          assets: [],
+          assetHistory: [],
+          incomeSources: [],
+          incomeRecords: [],
+          expenseCategories: [],
+          expenseRecords: [],
+          stockSales: [],
+          stockGrants: [
+            {
+              id: 'gr-orphan',
+              assetId: 'missing-asset',
+              grantDate: '2026-01-01',
+              totalShares: 10,
+              schedule: { frequency: 'annual', durationMonths: 12, cliffMonths: 0 },
+              tranches: [{ id: 't1', vestDate: '2027-01-01', shares: 10 }],
+              isScheduleCustomized: false,
+              createdAt: '2026-01-01T00:00:00Z',
+              updatedAt: '2026-01-01T00:00:00Z',
+            },
+          ],
+          marketQuotes: [],
+          fxRates: [],
+          settings: [DEFAULT_SETTINGS],
+        },
+      };
+
+      await expect(
+        service.importAllData(JSON.stringify(invalidData))
+      ).rejects.toThrow(/references non-existent assetId "missing-asset"/);
     });
 
     it('should reject when IncomeRecord references non-existent incomeSourceId', async () => {

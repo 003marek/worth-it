@@ -256,6 +256,58 @@
     </mat-card-content>
   </mat-card>
 
+  <!-- Upcoming Scheduled Vests Card (spec §9, UX Screen 8) -->
+  @if (projectedInflows().length > 0) {
+    <mat-card class="vests-card" appearance="outlined">
+      <mat-card-content>
+        <div class="vests-header">
+          <div class="vests-title-group">
+            <mat-icon class="vests-icon">trending_up</mat-icon>
+            <h3>Upcoming Scheduled Vests</h3>
+          </div>
+          <mat-chip-set>
+            <mat-chip class="vests-count-chip">
+              {{ projectedInflows().length }} future vest{{ projectedInflows().length === 1 ? '' : 's' }}
+            </mat-chip>
+          </mat-chip-set>
+        </div>
+
+        <!-- Assumptions Callout (UX Screen 8) -->
+        <mat-card appearance="outlined" class="vests-assumptions-callout projected">
+          <mat-card-content class="assumptions-content">
+            <mat-icon class="assumptions-icon">info</mat-icon>
+            <div class="assumptions-text">
+              @for (assumption of assumptions(); track $index) {
+                <p class="assumption-p">{{ assumption }}</p>
+              }
+              @if (assumptions().length === 0) {
+                <p class="assumption-p">
+                  Includes {{ projectedInflows().length }} future scheduled stock vestings totaling
+                  <strong>{{ projectedInflowsTotal() | money:currency() }}</strong>
+                  based on current market prices and NBP exchange rates. Future stock prices will fluctuate.
+                </p>
+              }
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <!-- Discrete Milestone Items List -->
+        <div class="vests-timeline-list" role="list" aria-label="Upcoming stock vest milestones">
+          @for (inflow of projectedInflows(); track inflow.sourceId + inflow.date) {
+            <div class="vest-milestone-item" role="listitem">
+              <span class="milestone-bullet">◆</span>
+              <span class="milestone-date">{{ inflow.date | date:'dd MMM yyyy' }}</span>
+              <span class="milestone-label">{{ inflow.label }}</span>
+              <span class="milestone-amount">
+                +{{ inflow.amountInBase | money:currency() }}
+              </span>
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+  }
+
   <!-- Full Funding Waterfall & Timeline -->
   <mat-card class="waterfall-card" appearance="outlined">
     <mat-card-content>

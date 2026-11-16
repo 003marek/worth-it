@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -10,14 +10,25 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { Asset, AssetType } from '../../core/models/worth-it.model';
+import { RouterLink } from '@angular/router';
+import { AssetValuation } from '../../core/asset-types/asset-type-handler';
+import { EmployerStockSnapshot, StockGrant } from '../../core/models/employer-stock.model';
+import { MarketDataSource } from '../../core/models/market-data.model';
+import { Asset, AssetType, StockSale } from '../../core/models/worth-it.model';
 import { FinancialCalculatorService } from '../../core/services/financial-calculator.service';
 import { WorthItStore } from '../../core/stores/worth-it.store';
 import { ConfirmDialog } from '../../shared/components/confirm-dialog/confirm-dialog';
 import { EmptyState } from '../../shared/components/empty-state/empty-state';
+import { MarketStatusBadge } from '../../shared/components/market-status-badge/market-status-badge';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
-import { AssetFormDialog, AssetDialogResult } from './asset-form-dialog';
+import {
+  StockSaleDialog,
+  StockSaleDialogResult,
+} from '../stock-sales/stock-sale-dialog';
+import { AssetDialogResult, AssetFormDialog } from './asset-form-dialog';
 import { AssetHistoryDialog } from './asset-history-dialog';
+import { EmployerStockFormDialog } from './employer-stock/employer-stock-form-dialog';
+import { VestedBaselineDialog } from './employer-stock/vested-baseline-dialog';
 import { UpdateBalanceDialog } from './update-balance-dialog';
 
 export interface AssetTypeBreakdownItem {
@@ -33,7 +44,7 @@ export const ASSET_TYPE_INFO: Record<AssetType, { label: string; icon: string }>
   bank_account: { label: 'Bank account', icon: 'account_balance' },
   cash: { label: 'Cash', icon: 'payments' },
   stocks_etf: { label: 'Stocks / ETF', icon: 'trending_up' },
-  employer_stock: { label: 'Employer stock', icon: 'domain' },
+  employer_stock: { label: 'Employer stock', icon: 'trending_up' },
   retirement: { label: 'Retirement', icon: 'savings' },
   other: { label: 'Other', icon: 'category' },
 };
@@ -46,6 +57,8 @@ export type GoalFilterOption = 'all' | 'goal_eligible' | 'excluded';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DatePipe,
+    DecimalPipe,
+    RouterLink,
     MatButtonModule,
     MatButtonToggleModule,
     MatCardModule,
@@ -57,6 +70,7 @@ export type GoalFilterOption = 'all' | 'goal_eligible' | 'excluded';
     MatSlideToggleModule,
     MatTooltipModule,
     EmptyState,
+    MarketStatusBadge,
     MoneyPipe,
   ],
   templateUrl: './assets.html',
@@ -71,6 +85,9 @@ export class Assets {
   protected readonly selectedTypeFilter = signal<AssetType | null>(null);
 
   protected readonly wealthSummary = this.store.wealthSummary;
+  protected readonly baseCurrency = computed(
+    () => this.store.settings().baseCurrency || 'PLN'
+  );
 
   protected readonly totalWealthHint = computed(() => {
     const w = this.wealthSummary();
@@ -86,6 +103,7 @@ export class Assets {
 
   protected readonly typeBreakdown = computed<AssetTypeBreakdownItem[]>(() => {
     const assets = this.store.assets();
+    const valuations = this.store.assetValuations();
     const recordedTotal = this.wealthSummary().recordedAssetsTotal;
     const types: AssetType[] = [
       'bank_account',
@@ -100,7 +118,9 @@ export class Assets {
       .map((type) => {
         const typeAssets = assets.filter((a) => a.type === type);
         const totalInBase = typeAssets.reduce(
-          (sum, a) => sum + this.calculator.assetValueInBase(a),
+          (sum, a) =>
+            sum +
+            (valuations.get(a.id)?.valueInBase ?? this.calculator.assetValueInBase(a)),
           0
         );
         const percentage = recordedTotal > 0 ? (totalInBase / recordedTotal) * 100 : 0;
@@ -138,7 +158,40 @@ export class Assets {
   }
 
   protected getAssetBaseValue(asset: Asset): number {
-    return this.calculator.assetValueInBase(asset);
+    return (
+      this.store.assetValuations().get(asset.id)?.valueInBase ??
+      this.calculator.assetValueInBase(asset)
+    );
+  }
+
+  protected getValuation(assetId: string): AssetValuation | undefined {
+    return this.store.assetValuations().get(assetId);
+  }
+
+  protected getSnapshot(assetId: string): EmployerStockSnapshot | undefined {
+    return this.store.employerStockSnapshots().get(assetId);
+  }
+
+  protected getGrants(assetId: string): StockGrant[] {
+    return this.store.grantsByAsset().get(assetId) ?? [];
+  }
+
+  protected getUnvestedValueInBase(assetId: string): number {
+    const unvested = this.getSnapshot(assetId)?.unvestedShares ?? 0;
+    const val = this.getValuation(assetId);
+    const price = val?.unitPrice ?? 0;
+    const fx = val?.fxRateToBase ?? 1;
+    return Math.round(unvested * price * fx * 100) / 100;
+  }
+
+  protected getPriceSource(assetId: string): MarketDataSource {
+    const st = this.getValuation(assetId)?.priceStatus;
+    return st === 'manual' || st === 'missing' ? 'manual' : 'twelve_data';
+  }
+
+  protected getFxSource(assetId: string): MarketDataSource {
+    const st = this.getValuation(assetId)?.fxStatus;
+    return st === 'manual' || st === 'missing' ? 'manual' : 'nbp';
   }
 
   protected setGoalFilter(filter: GoalFilterOption): void {
@@ -168,6 +221,15 @@ export class Assets {
 
     ref.afterClosed().subscribe(async (res) => {
       if (!res) return;
+      if (res.type === 'employer_stock') {
+        this.openAddEmployerStockDialog({
+          initialName: res.name,
+          initialCurrency: res.currency === 'PLN' ? 'USD' : res.currency,
+          initialIsGoalEligible: res.isGoalEligible,
+        });
+        return;
+      }
+
       const created = await this.store.addAsset(
         {
           name: res.name,
@@ -188,7 +250,30 @@ export class Assets {
     });
   }
 
+  protected openAddEmployerStockDialog(opts?: {
+    initialName?: string;
+    initialCurrency?: string;
+    initialIsGoalEligible?: boolean;
+  }): void {
+    this.dialog.open(EmployerStockFormDialog, {
+      data: {
+        initialName: opts?.initialName,
+        initialCurrency: opts?.initialCurrency,
+        initialIsGoalEligible: opts?.initialIsGoalEligible,
+      },
+      width: '520px',
+    });
+  }
+
   protected openEditAssetDialog(asset: Asset): void {
+    if (asset.type === 'employer_stock') {
+      this.dialog.open(EmployerStockFormDialog, {
+        data: { asset },
+        width: '520px',
+      });
+      return;
+    }
+
     const ref = this.dialog.open<AssetFormDialog, { asset?: Asset }, AssetDialogResult>(
       AssetFormDialog,
       {
@@ -214,6 +299,44 @@ export class Assets {
     });
   }
 
+  protected openBaselineDialog(asset: Asset): void {
+    this.dialog.open(VestedBaselineDialog, {
+      data: { asset },
+      width: '500px',
+    });
+  }
+
+  protected openSellSharesDialog(asset: Asset): void {
+    const unitPrice = this.getValuation(asset.id)?.unitPrice ?? 0;
+    const prefilledSale: Partial<StockSale> = {
+      sourceAssetId: asset.id,
+      companyOrTicker: asset.employerStock?.tickerSymbol || asset.name,
+      currency: asset.currency,
+      pricePerShare: unitPrice > 0 ? unitPrice : 0,
+      sharesSold: 1,
+      saleDate: this.store.today(),
+    };
+
+    const ref = this.dialog.open(StockSaleDialog, {
+      data: {
+        preselectedAssetId: asset.id,
+        sale: prefilledSale as StockSale,
+      },
+      width: '560px',
+    });
+
+    ref.afterClosed().subscribe(async (res: StockSaleDialogResult | undefined) => {
+      if (!res) return;
+      const sourceAssetId =
+        (res as StockSaleDialogResult & { sourceAssetId?: string }).sourceAssetId ??
+        asset.id;
+      await this.store.addStockSale({
+        ...res,
+        sourceAssetId,
+      });
+    });
+  }
+
   protected openUpdateBalanceDialog(asset: Asset): void {
     this.dialog.open(UpdateBalanceDialog, {
       data: { asset },
@@ -229,9 +352,7 @@ export class Assets {
   }
 
   protected async onToggleGoalEligible(asset: Asset): Promise<void> {
-    await this.store.updateAsset(asset.id, {
-      isGoalEligible: !asset.isGoalEligible,
-    });
+    await this.store.toggleGoalEligible(asset.id, !asset.isGoalEligible);
   }
 
   protected onDeleteAsset(asset: Asset): void {

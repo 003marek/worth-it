@@ -1,4 +1,4 @@
-import { computed, inject } from '@angular/core';
+import { computed, inject, Injector } from '@angular/core';
 import {
   patchState,
   signalStore,
@@ -15,6 +15,23 @@ import {
   withEntities,
 } from '@ngrx/signals/entities';
 import {
+  AssetValuation,
+  AssetValuationContext,
+  ProjectedInflow,
+} from '../asset-types/asset-type-handler';
+import {
+  collectProjectedInflows,
+  toValuedAsset,
+  valueAssets,
+} from '../asset-types/asset-valuation';
+import { employerStockSnapshot } from '../asset-types/employer-stock/vesting';
+import {
+  EmployerStockDetails,
+  EmployerStockSnapshot,
+  StockGrant,
+} from '../models/employer-stock.model';
+import { FxRate, MarketQuote } from '../models/market-data.model';
+import {
   ApplicationSettings,
   Asset,
   AssetBalanceHistory,
@@ -28,6 +45,10 @@ import {
   StockSale,
 } from '../models/worth-it.model';
 import { FinancialCalculatorService } from '../services/financial-calculator.service';
+import {
+  MarketDataService,
+  MarketRefreshResult,
+} from '../services/market-data/market-data.service';
 import { DEFAULT_SETTINGS, StorageService } from '../services/storage.service';
 
 function generateId(): string {
@@ -35,6 +56,21 @@ function generateId(): string {
     return crypto.randomUUID();
   }
   return 'id_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+}
+
+function todayIsoString(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function parseIsoDateLocal(iso: string): Date {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+    return new Date();
+  }
+  return new Date(y, m - 1, d);
 }
 
 export interface WorthItState {
@@ -45,6 +81,12 @@ export interface WorthItState {
   expenseCategories: ExpenseCategory[];
   expenseRecords: ExpenseRecord[];
   stockSales: StockSale[];
+  stockGrants: StockGrant[];
+  marketQuotes: MarketQuote[];
+  fxRates: FxRate[];
+  today: string;
+  marketDataRefreshing: boolean;
+  lastMarketRefresh: MarketRefreshResult | null;
   settings: ApplicationSettings;
   isLoading: boolean;
   error: string | null;
@@ -58,6 +100,12 @@ export const initialWorthItState: WorthItState = {
   expenseCategories: [],
   expenseRecords: [],
   stockSales: [],
+  stockGrants: [],
+  marketQuotes: [],
+  fxRates: [],
+  today: todayIsoString(),
+  marketDataRefreshing: false,
+  lastMarketRefresh: null,
   settings: DEFAULT_SETTINGS,
   isLoading: false,
   error: null,
@@ -91,9 +139,107 @@ export const WorthItStore = signalStore(
       return goals().filter((g) => g.isCompleted);
     });
 
+    const employerStockAssets = computed<Asset[]>(() =>
+      store.assets().filter((a) => a.type === 'employer_stock')
+    );
+
+    const grantsByAsset = computed<Map<string, StockGrant[]>>(() => {
+      const map = new Map<string, StockGrant[]>();
+      for (const asset of store.assets()) {
+        if (asset.type === 'employer_stock') {
+          map.set(asset.id, []);
+        }
+      }
+      for (const grant of store.stockGrants()) {
+        const list = map.get(grant.assetId) ?? [];
+        list.push(grant);
+        map.set(grant.assetId, list);
+      }
+      for (const [assetId, list] of map.entries()) {
+        map.set(
+          assetId,
+          list.slice().sort((a, b) => a.grantDate.localeCompare(b.grantDate))
+        );
+      }
+      return map;
+    });
+
+    const salesByAsset = computed<Map<string, StockSale[]>>(() => {
+      const map = new Map<string, StockSale[]>();
+      for (const sale of store.stockSales()) {
+        if (!sale.sourceAssetId) continue;
+        const list = map.get(sale.sourceAssetId) ?? [];
+        list.push(sale);
+        map.set(sale.sourceAssetId, list);
+      }
+      return map;
+    });
+
+    const quotesMap = computed<Map<string, MarketQuote>>(() => {
+      const map = new Map<string, MarketQuote>();
+      for (const quote of store.marketQuotes()) {
+        map.set(quote.symbol.trim().toUpperCase(), quote);
+      }
+      return map;
+    });
+
+    const fxRatesMap = computed<Map<string, FxRate>>(() => {
+      const map = new Map<string, FxRate>();
+      for (const rate of store.fxRates()) {
+        map.set(rate.pair.trim().toUpperCase(), rate);
+      }
+      return map;
+    });
+
+    const valuationContext = computed<AssetValuationContext>(() => ({
+      today: store.today(),
+      baseCurrency: store.settings().baseCurrency || 'PLN',
+      grantsByAsset: grantsByAsset(),
+      salesByAsset: salesByAsset(),
+      quotes: quotesMap(),
+      fxRates: fxRatesMap(),
+      nowMs: Date.now(),
+    }));
+
+    const assetValuations = computed<Map<string, AssetValuation>>(() =>
+      valueAssets(store.assets(), valuationContext())
+    );
+
+    const valuedAssets = computed<Asset[]>(() => {
+      const valuations = assetValuations();
+      return store.assets().map((asset) => {
+        const valuation = valuations.get(asset.id);
+        return valuation ? toValuedAsset(asset, valuation) : asset;
+      });
+    });
+
+    const employerStockSnapshots = computed<Map<string, EmployerStockSnapshot>>(
+      () => {
+        const map = new Map<string, EmployerStockSnapshot>();
+        const grantsMap = grantsByAsset();
+        const salesMap = salesByAsset();
+        const today = store.today();
+        for (const asset of employerStockAssets()) {
+          const grants = grantsMap.get(asset.id) ?? [];
+          const sales = salesMap.get(asset.id) ?? [];
+          map.set(
+            asset.id,
+            employerStockSnapshot(asset, grants, sales, today)
+          );
+        }
+        return map;
+      }
+    );
+
+    const projectedInflows = computed<ProjectedInflow[]>(() =>
+      collectProjectedInflows(store.assets(), valuationContext(), {
+        goalEligibleOnly: true,
+      })
+    );
+
     const wealthSummary = computed(() => {
       return calculator.calculateWealthSummary(
-        store.assets(),
+        valuedAssets(),
         store.entities(),
         store.settings().cushion,
         store.incomeRecords(),
@@ -120,33 +266,42 @@ export const WorthItStore = signalStore(
     const financialCushionStatus = computed(() => {
       const wealth = wealthSummary();
       const surplus = monthlySurplusSummary().monthlySurplus;
+      const refDate = parseIsoDateLocal(store.today());
       return calculator.calculateFinancialCushionStatus(
         wealth.goalEligibleWealth,
         store.settings().cushion,
-        surplus
+        surplus,
+        refDate,
+        projectedInflows()
       );
     });
 
     const goalsWithFunding = computed(() => {
       const wealth = wealthSummary();
       const surplus = monthlySurplusSummary().monthlySurplus;
+      const refDate = parseIsoDateLocal(store.today());
       return calculator.calculateGoalsFundingSummary(
         goals(),
         wealth.availableForGoals,
         wealth.cushionDeficit,
-        surplus
+        surplus,
+        refDate,
+        projectedInflows()
       );
     });
 
     const projectionSummary = computed(() => {
       const wealth = wealthSummary();
+      const refDate = parseIsoDateLocal(store.today());
       return calculator.calculateProjectionSummary(
         store.incomeSources(),
         store.expenseCategories(),
         store.settings().cushion,
         goals(),
         wealth.availableForGoals,
-        wealth.cushionDeficit
+        wealth.cushionDeficit,
+        refDate,
+        projectedInflows()
       );
     });
 
@@ -156,6 +311,13 @@ export const WorthItStore = signalStore(
       upcomingGoals,
       skippedGoals,
       completedGoals,
+      valuationContext,
+      assetValuations,
+      valuedAssets,
+      employerStockSnapshots,
+      grantsByAsset,
+      projectedInflows,
+      employerStockAssets,
       wealthSummary,
       pendingIncomeRecords,
       pendingExpenseRecords,
@@ -167,6 +329,15 @@ export const WorthItStore = signalStore(
   }),
   withMethods((store) => {
     const storage = inject(StorageService);
+    const injector = inject(Injector);
+    let marketDataService: MarketDataService | null = null;
+
+    function getMarketDataService(): MarketDataService {
+      if (!marketDataService) {
+        marketDataService = injector.get(MarketDataService);
+      }
+      return marketDataService;
+    }
 
     return {
       setLoading(isLoading: boolean) {
@@ -175,6 +346,15 @@ export const WorthItStore = signalStore(
 
       setError(error: string | null) {
         patchState(store, { error });
+      },
+
+      refreshToday(dateOverride?: string): void {
+        patchState(store, {
+          today:
+            dateOverride && dateOverride.trim()
+              ? dateOverride.trim().slice(0, 10)
+              : todayIsoString(),
+        });
       },
 
       async loadAll(): Promise<void> {
@@ -190,6 +370,9 @@ export const WorthItStore = signalStore(
             expenseCategories,
             expenseRecords,
             stockSales,
+            stockGrants,
+            marketQuotes,
+            fxRates,
           ] = await Promise.all([
             storage.getSettings(),
             storage.getAllGoals(),
@@ -200,24 +383,32 @@ export const WorthItStore = signalStore(
             storage.getAllExpenseCategories(),
             storage.getAllExpenseRecords(),
             storage.getAllStockSales(),
+            storage.getAllStockGrants(),
+            storage.getAllMarketQuotes(),
+            storage.getAllFxRates(),
           ]);
 
-          patchState(
-            store,
-            setAllEntities(goals),
-            {
-              assets,
-              assetHistory,
-              incomeSources,
-              incomeRecords,
-              expenseCategories,
-              expenseRecords,
-              stockSales,
-              settings,
-              isLoading: false,
-              error: null,
-            }
-          );
+          patchState(store, setAllEntities(goals), {
+            assets,
+            assetHistory,
+            incomeSources,
+            incomeRecords,
+            expenseCategories,
+            expenseRecords,
+            stockSales,
+            stockGrants,
+            marketQuotes,
+            fxRates,
+            today: todayIsoString(),
+            isLoading: false,
+            error: null,
+          });
+
+          const isOnline =
+            typeof navigator === 'undefined' || navigator.onLine !== false;
+          if (isOnline && settings.twelveDataApiKey?.trim()) {
+            void this.refreshMarketData().catch(() => undefined);
+          }
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : String(err);
           patchState(store, { isLoading: false, error: message });
@@ -383,7 +574,7 @@ export const WorthItStore = signalStore(
         assetInput: Partial<Asset> & {
           name: string;
           type: Asset['type'];
-          balance: number;
+          balance?: number;
         },
         initialHistoryNote?: string
       ): Promise<Asset> {
@@ -395,7 +586,12 @@ export const WorthItStore = signalStore(
           name: assetInput.name.trim(),
           type: assetInput.type,
           currency: assetInput.currency || baseCurrency,
-          balance: Number(assetInput.balance) || 0,
+          balance:
+            assetInput.type === 'employer_stock'
+              ? 0
+              : Number(assetInput.balance) || 0,
+          exchangeRateToBase: assetInput.exchangeRateToBase,
+          employerStock: assetInput.employerStock,
           isGoalEligible: assetInput.isGoalEligible ?? true,
           updatedAt: now,
         };
@@ -471,12 +667,193 @@ export const WorthItStore = signalStore(
         return this.updateAsset(id, { balance: newBalance }, note);
       },
 
+      async toggleGoalEligible(
+        id: string,
+        isGoalEligible?: boolean
+      ): Promise<Asset | undefined> {
+        const current = store.assets().find((a) => a.id === id);
+        if (!current) return undefined;
+        return this.updateAsset(id, {
+          isGoalEligible: isGoalEligible ?? !current.isGoalEligible,
+        });
+      },
+
       async deleteAsset(id: string): Promise<void> {
         await storage.deleteAsset(id);
         patchState(store, (state) => ({
           assets: state.assets.filter((a) => a.id !== id),
           assetHistory: state.assetHistory.filter((h) => h.assetId !== id),
+          stockGrants: state.stockGrants.filter((g) => g.assetId !== id),
+          stockSales: state.stockSales.map((s) =>
+            s.sourceAssetId === id ? { ...s, sourceAssetId: undefined } : s
+          ),
         }));
+      },
+
+      // --- Employer Stock Grants & Baseline Methods (arch §8) ---
+      async addStockGrant(
+        input: Omit<StockGrant, 'id' | 'createdAt' | 'updatedAt'> &
+          Partial<Pick<StockGrant, 'id' | 'createdAt' | 'updatedAt'>>
+      ): Promise<StockGrant> {
+        const now = new Date().toISOString();
+        const newGrant: StockGrant = {
+          ...input,
+          id: input.id || generateId(),
+          name: input.name?.trim() || undefined,
+          createdAt: input.createdAt || now,
+          updatedAt: input.updatedAt || now,
+        };
+
+        await storage.saveStockGrant(newGrant);
+        patchState(store, (state) => ({
+          stockGrants: [...state.stockGrants, newGrant],
+        }));
+        return newGrant;
+      },
+
+      async updateStockGrant(
+        id: string,
+        patch: Partial<StockGrant>
+      ): Promise<StockGrant | undefined> {
+        const current = store.stockGrants().find((g) => g.id === id);
+        if (!current) return undefined;
+
+        const updated: StockGrant = {
+          ...current,
+          ...patch,
+          id,
+          updatedAt: new Date().toISOString(),
+        };
+
+        await storage.saveStockGrant(updated);
+        patchState(store, (state) => ({
+          stockGrants: state.stockGrants.map((g) =>
+            g.id === id ? updated : g
+          ),
+        }));
+        return updated;
+      },
+
+      async deleteStockGrant(id: string): Promise<void> {
+        await storage.deleteStockGrant(id);
+        patchState(store, (state) => ({
+          stockGrants: state.stockGrants.filter((g) => g.id !== id),
+        }));
+      },
+
+      async setVestedSharesBaseline(
+        assetId: string,
+        shares: number,
+        date?: string
+      ): Promise<Asset | undefined> {
+        const current = store.assets().find((a) => a.id === assetId);
+        if (!current) return undefined;
+
+        const baselineDate =
+          date && date.trim() ? date.trim().slice(0, 10) : store.today();
+        const updatedDetails: EmployerStockDetails = {
+          tickerSymbol: current.employerStock?.tickerSymbol ?? '',
+          ...current.employerStock,
+          vestedSharesBaseline: Math.max(0, Number(shares) || 0),
+          vestedSharesBaselineDate: baselineDate,
+        };
+
+        return this.updateAsset(assetId, { employerStock: updatedDetails });
+      },
+
+      async clearVestedSharesBaseline(
+        assetId: string
+      ): Promise<Asset | undefined> {
+        const current = store.assets().find((a) => a.id === assetId);
+        if (!current) return undefined;
+
+        const updatedDetails: EmployerStockDetails = {
+          tickerSymbol: current.employerStock?.tickerSymbol ?? '',
+          ...current.employerStock,
+          vestedSharesBaseline: undefined,
+          vestedSharesBaselineDate: undefined,
+        };
+
+        return this.updateAsset(assetId, { employerStock: updatedDetails });
+      },
+
+      // --- Market Data Methods (arch §8) ---
+      async lookupTicker(symbol: string): Promise<MarketQuote> {
+        const quote = await getMarketDataService().lookupSymbol(symbol);
+        const symUpper = quote.symbol.trim().toUpperCase();
+        patchState(store, (state) => {
+          const filtered = state.marketQuotes.filter(
+            (q) => q.symbol.trim().toUpperCase() !== symUpper
+          );
+          return { marketQuotes: [...filtered, quote] };
+        });
+        return quote;
+      },
+
+      async refreshMarketData(opts?: {
+        force?: boolean;
+      }): Promise<MarketRefreshResult> {
+        patchState(store, { marketDataRefreshing: true });
+        try {
+          const mds = getMarketDataService();
+          const tickers = Array.from(
+            new Set(
+              store
+                .employerStockAssets()
+                .map((a) => a.employerStock?.tickerSymbol?.trim().toUpperCase() ?? '')
+                .filter(Boolean)
+            )
+          );
+
+          const quoteResult = await mds.refreshQuotes(tickers, opts);
+          const marketQuotes = await storage.getAllMarketQuotes();
+
+          const baseCurrency = (
+            store.settings().baseCurrency || 'PLN'
+          ).toUpperCase();
+          const quoteBySymbol = new Map(
+            marketQuotes.map((q) => [q.symbol.trim().toUpperCase(), q])
+          );
+
+          const currencies = new Set<string>();
+          for (const asset of store.assets()) {
+            if (asset.currency) {
+              currencies.add(asset.currency.trim().toUpperCase());
+            }
+            if (asset.type === 'employer_stock') {
+              const sym = asset.employerStock?.tickerSymbol?.trim().toUpperCase();
+              const q = sym ? quoteBySymbol.get(sym) : undefined;
+              if (q?.currency) {
+                currencies.add(q.currency.trim().toUpperCase());
+              }
+            }
+          }
+          currencies.delete(baseCurrency);
+
+          const fxResult = await mds.refreshFxRates(
+            Array.from(currencies),
+            baseCurrency,
+            opts
+          );
+          const fxRates = await storage.getAllFxRates();
+
+          const combined: MarketRefreshResult = {
+            updated: [...quoteResult.updated, ...fxResult.updated],
+            skipped: [...quoteResult.skipped, ...fxResult.skipped],
+            errors: [...quoteResult.errors, ...fxResult.errors],
+          };
+
+          patchState(store, {
+            marketQuotes,
+            fxRates,
+            marketDataRefreshing: false,
+            lastMarketRefresh: combined,
+          });
+          return combined;
+        } catch (err: unknown) {
+          patchState(store, { marketDataRefreshing: false });
+          throw err;
+        }
       },
 
       // --- Asset Balance History Methods ---
@@ -598,7 +975,9 @@ export const WorthItStore = signalStore(
         const updated: IncomeRecord = { ...current, ...changes, id };
         await storage.saveIncomeRecord(updated);
         patchState(store, (state) => ({
-          incomeRecords: state.incomeRecords.map((r) => (r.id === id ? updated : r)),
+          incomeRecords: state.incomeRecords.map((r) =>
+            r.id === id ? updated : r
+          ),
         }));
         return updated;
       },
@@ -614,18 +993,28 @@ export const WorthItStore = signalStore(
       }): Promise<void> {
         const incomeIds = new Set(
           ids?.incomeIds ??
-            store.incomeRecords().filter((r) => r.isActual && !r.isReflectedInBalances).map((r) => r.id)
+            store
+              .incomeRecords()
+              .filter((r) => r.isActual && !r.isReflectedInBalances)
+              .map((r) => r.id)
         );
         const expenseIds = new Set(
           ids?.expenseIds ??
-            store.expenseRecords().filter((r) => r.isActual && !r.isReflectedInBalances).map((r) => r.id)
+            store
+              .expenseRecords()
+              .filter((r) => r.isActual && !r.isReflectedInBalances)
+              .map((r) => r.id)
         );
         const income = store
           .incomeRecords()
-          .map((r) => (incomeIds.has(r.id) ? { ...r, isReflectedInBalances: true } : r));
+          .map((r) =>
+            incomeIds.has(r.id) ? { ...r, isReflectedInBalances: true } : r
+          );
         const expenses = store
           .expenseRecords()
-          .map((r) => (expenseIds.has(r.id) ? { ...r, isReflectedInBalances: true } : r));
+          .map((r) =>
+            expenseIds.has(r.id) ? { ...r, isReflectedInBalances: true } : r
+          );
         for (const r of income.filter((r) => incomeIds.has(r.id))) {
           await storage.saveIncomeRecord(r);
         }
@@ -737,7 +1126,9 @@ export const WorthItStore = signalStore(
         const updated: ExpenseRecord = { ...current, ...changes, id };
         await storage.saveExpenseRecord(updated);
         patchState(store, (state) => ({
-          expenseRecords: state.expenseRecords.map((r) => (r.id === id ? updated : r)),
+          expenseRecords: state.expenseRecords.map((r) =>
+            r.id === id ? updated : r
+          ),
         }));
         return updated;
       },
@@ -759,6 +1150,7 @@ export const WorthItStore = signalStore(
 
         const newSale: StockSale = {
           id: saleInput.id || generateId(),
+          sourceAssetId: saleInput.sourceAssetId,
           companyOrTicker: saleInput.companyOrTicker.trim(),
           saleDate: saleInput.saleDate || new Date().toISOString(),
           sharesSold,

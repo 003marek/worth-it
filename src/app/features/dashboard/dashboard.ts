@@ -104,19 +104,63 @@ export class Dashboard {
   readonly assetBreakdown = computed(() => {
     const assets = this.store.assets();
     const total = this.wealthSummary().recordedAssetsTotal;
+    const valuations = this.store.assetValuations();
+    const snapshots = this.store.employerStockSnapshots();
+
     return assets.map((a) => {
-      const rate =
-        a.exchangeRateToBase && a.exchangeRateToBase > 0
-          ? a.exchangeRateToBase
-          : 1;
-      const baseValue = (Number(a.balance) || 0) * rate;
+      const valuation = valuations.get(a.id);
+      const snapshot = snapshots.get(a.id);
+
+      let baseValue = 0;
+      if (a.type === 'employer_stock' && valuation) {
+        baseValue = valuation.valueInBase;
+      } else {
+        const rate =
+          a.exchangeRateToBase && a.exchangeRateToBase > 0
+            ? a.exchangeRateToBase
+            : 1;
+        baseValue = (Number(a.balance) || 0) * rate;
+      }
+
       const percentOfTotal = total > 0 ? (baseValue / total) * 100 : 0;
+
+      let heldShares: number | undefined = undefined;
+      let unvestedShares = 0;
+      let unvestedValueInBase = 0;
+      let nextVest: { date: string; shares: number } | undefined = undefined;
+
+      if (a.type === 'employer_stock' && snapshot) {
+        heldShares = snapshot.heldShares;
+        unvestedShares = snapshot.unvestedShares;
+        nextVest = snapshot.nextVest;
+        if (valuation && valuation.unitPrice) {
+          unvestedValueInBase =
+            Math.round(
+              snapshot.unvestedShares *
+                valuation.unitPrice *
+                (valuation.fxRateToBase || 1) *
+                100
+            ) / 100;
+        }
+      }
+
       return {
         ...a,
         baseValue,
         percentOfTotal,
+        heldShares,
+        unvestedShares,
+        unvestedValueInBase,
+        nextVest,
       };
     });
+  });
+
+  readonly totalUnvestedPipelineInBase = computed(() => {
+    return this.assetBreakdown().reduce(
+      (sum, a) => sum + (a.unvestedValueInBase || 0),
+      0
+    );
   });
 
   async onLayoutChange(layout: DashboardLayout): Promise<void> {

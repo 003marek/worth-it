@@ -6,6 +6,14 @@
       <p class="page-subtitle">Track your accounts, investments, and funds allocated towards goals</p>
     </div>
     <div class="header-actions">
+      <button
+        mat-stroked-button
+        color="primary"
+        (click)="openAddEmployerStockDialog()"
+      >
+        <mat-icon>trending_up</mat-icon>
+        <span>Add employer stock</span>
+      </button>
       <button mat-flat-button color="primary" (click)="openAddAssetDialog()">
         <mat-icon>add</mat-icon>
         <span>Add asset</span>
@@ -175,97 +183,240 @@
   @if (store.assets().length > 0) {
     <section class="assets-grid" aria-label="Asset cards list">
       @for (asset of filteredAssets(); track asset.id) {
-        <mat-card class="asset-card" appearance="outlined" [class.excluded-asset]="!asset.isGoalEligible">
-          <!-- Card Header -->
-          <mat-card-header class="card-header">
-            <div mat-card-avatar class="type-badge" [class]="'type-' + asset.type">
-              <mat-icon>{{ getTypeInfo(asset.type).icon }}</mat-icon>
-            </div>
-            <mat-card-title class="asset-name">{{ asset.name }}</mat-card-title>
-            <mat-card-subtitle class="type-name">{{ getTypeInfo(asset.type).label }}</mat-card-subtitle>
+        <mat-card
+          class="asset-card"
+          appearance="outlined"
+          [class.excluded-asset]="!asset.isGoalEligible"
+          [class.employer-stock-card]="asset.type === 'employer_stock'"
+        >
+          @if (asset.type === 'employer_stock') {
+            <!-- Screen 1: Employer Stock Card -->
+            @let snapshot = getSnapshot(asset.id);
+            @let valuation = getValuation(asset.id);
+            @let grants = getGrants(asset.id);
+            @let ticker = asset.employerStock?.tickerSymbol || 'STOCK';
 
-            <span class="spacer"></span>
-            <button
-              mat-icon-button
-              [matMenuTriggerFor]="menu"
-              aria-label="More options for asset"
-              class="more-btn"
-            >
-              <mat-icon>more_vert</mat-icon>
-            </button>
-            <mat-menu #menu="matMenu">
-              <button mat-menu-item (click)="openEditAssetDialog(asset)">
-                <mat-icon>edit</mat-icon>
-                <span>Edit details</span>
-              </button>
-              <button mat-menu-item (click)="openHistoryDialog(asset)">
-                <mat-icon>history</mat-icon>
-                <span>Balance history</span>
-              </button>
-              <button mat-menu-item (click)="onDeleteAsset(asset)" class="danger-action">
-                <mat-icon color="warn">delete</mat-icon>
-                <span>Delete asset</span>
-              </button>
-            </mat-menu>
-          </mat-card-header>
-
-          <!-- Card Body -->
-          <mat-card-content class="card-content">
-            <div class="balance-container">
-              <div class="primary-balance">
-                {{ asset.balance | money:asset.currency }}
+            <mat-card-header class="card-header">
+              <div mat-card-avatar class="type-badge type-employer_stock">
+                <mat-icon>trending_up</mat-icon>
               </div>
-              @if (asset.currency !== 'PLN') {
-                <div class="exchange-equivalent">
-                  ≈ {{ getAssetBaseValue(asset) | money:'PLN' }}
+              <mat-card-title class="asset-name">
+                <span>{{ asset.name }}</span>
+                <span class="ticker-badge mono-nums">{{ ticker }}</span>
+              </mat-card-title>
+              <mat-card-subtitle class="type-name">
+                Employer Stock · {{ ticker }} ({{ asset.currency }})
+              </mat-card-subtitle>
+
+              <span class="spacer"></span>
+              <button
+                mat-icon-button
+                [matMenuTriggerFor]="stockMenu"
+                aria-label="More options for employer stock"
+                class="more-btn"
+              >
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #stockMenu="matMenu">
+                <button mat-menu-item (click)="openEditAssetDialog(asset)">
+                  <mat-icon>edit</mat-icon>
+                  <span>Edit Details</span>
+                </button>
+                <a mat-menu-item [routerLink]="['/assets', asset.id]">
+                  <mat-icon>assignment</mat-icon>
+                  <span>Manage Grants</span>
+                </a>
+                <button mat-menu-item (click)="openBaselineDialog(asset)">
+                  <mat-icon>verified</mat-icon>
+                  <span>Set Baseline</span>
+                </button>
+                <button
+                  mat-menu-item
+                  (click)="onDeleteAsset(asset)"
+                  class="danger-action"
+                >
+                  <mat-icon color="warn">delete</mat-icon>
+                  <span>Delete Asset</span>
+                </button>
+              </mat-menu>
+            </mat-card-header>
+
+            <mat-card-content class="card-content">
+              <!-- Primary Balance: Actual Held Wealth -->
+              <div class="balance-container">
+                <div class="primary-balance mono-nums">
+                  {{ snapshot?.heldShares ?? 0 | number:'1.0-4' }} sh
+                  <span class="held-label">Vested &amp; held</span>
+                </div>
+                <div class="exchange-equivalent mono-nums">
+                  <strong>≈ {{ getAssetBaseValue(asset) | money:'PLN' }}</strong>
                   <span class="rate-note">
-                    (1 {{ asset.currency }} = {{ asset.exchangeRateToBase || 1 }} PLN)
+                    (@ {{ (valuation?.unitPrice ?? 0) | money:asset.currency:2 }} · FX:
+                    {{ valuation?.fxRateToBase ?? 1 | number:'1.2-4' }})
                   </span>
                 </div>
-              }
-            </div>
+              </div>
 
-            <div class="card-meta-row">
-              <span class="updated-date">Updated {{ asset.updatedAt | date:'mediumDate' }}</span>
-            </div>
+              <!-- Secondary Pipeline: Unvested Future -->
+              <div class="unvested-pipeline-box">
+                <div class="unvested-text mono-nums projected">
+                  Unvested:
+                  <strong>{{ snapshot?.unvestedShares ?? 0 | number:'1.0-4' }} sh</strong>
+                  (est. {{ getUnvestedValueInBase(asset.id) | money:'PLN' }})
+                </div>
+                @if (snapshot?.nextVest; as next) {
+                  <div class="next-vest-pill mono-nums">
+                    Next: {{ next.shares | number:'1.0-4' }} sh on
+                    {{ next.date | date:'mediumDate' }}
+                  </div>
+                }
+              </div>
 
-            <!-- Inline Goal Eligibility Slide Toggle -->
-            <div class="eligibility-toggle-row">
-              <mat-slide-toggle
-                [checked]="asset.isGoalEligible"
-                (change)="onToggleGoalEligible(asset)"
+              <!-- Market Status Row -->
+              <div class="market-badges-row">
+                <app-market-status-badge
+                  [status]="valuation?.priceStatus ?? 'missing'"
+                  [source]="getPriceSource(asset.id)"
+                  [asOf]="valuation?.priceAsOf"
+                  [symbolOrPair]="ticker"
+                />
+                @if (asset.currency !== baseCurrency()) {
+                  <app-market-status-badge
+                    [status]="valuation?.fxStatus ?? 'missing'"
+                    [source]="getFxSource(asset.id)"
+                    [asOf]="valuation?.fxAsOf"
+                    [symbolOrPair]="asset.currency + ' → ' + baseCurrency()"
+                  />
+                }
+              </div>
+
+              <!-- Inline Goal Eligibility Slide Toggle -->
+              <div class="eligibility-toggle-row">
+                <mat-slide-toggle
+                  [checked]="asset.isGoalEligible"
+                  (change)="onToggleGoalEligible(asset)"
+                  color="primary"
+                >
+                  <span class="toggle-label">Goal eligibility</span>
+                </mat-slide-toggle>
+                <span class="toggle-status" [class.active]="asset.isGoalEligible">
+                  {{ asset.isGoalEligible ? 'Counts towards goals' : 'Excluded from goals' }}
+                </span>
+              </div>
+            </mat-card-content>
+
+            <mat-divider></mat-divider>
+
+            <!-- Card Actions (Thumb Zone) -->
+            <mat-card-actions class="card-actions">
+              <a
+                mat-flat-button
                 color="primary"
+                [routerLink]="['/assets', asset.id]"
+                class="action-update-btn"
               >
-                <span class="toggle-label">Goal eligibility</span>
-              </mat-slide-toggle>
-              <span class="toggle-status" [class.active]="asset.isGoalEligible">
-                {{ asset.isGoalEligible ? 'Counts towards goals' : 'Excluded from goals' }}
-              </span>
-            </div>
-          </mat-card-content>
+                <mat-icon>timeline</mat-icon>
+                <span>Manage grants ({{ grants.length }})</span>
+              </a>
+              <button
+                mat-stroked-button
+                type="button"
+                (click)="openSellSharesDialog(asset)"
+                class="action-history-btn"
+              >
+                <mat-icon>sell</mat-icon>
+                <span>Sell shares</span>
+              </button>
+            </mat-card-actions>
+          } @else {
+            <!-- Standard Balance-Based Asset Card -->
+            <mat-card-header class="card-header">
+              <div mat-card-avatar class="type-badge" [class]="'type-' + asset.type">
+                <mat-icon>{{ getTypeInfo(asset.type).icon }}</mat-icon>
+              </div>
+              <mat-card-title class="asset-name">{{ asset.name }}</mat-card-title>
+              <mat-card-subtitle class="type-name">{{ getTypeInfo(asset.type).label }}</mat-card-subtitle>
 
-          <mat-divider></mat-divider>
+              <span class="spacer"></span>
+              <button
+                mat-icon-button
+                [matMenuTriggerFor]="menu"
+                aria-label="More options for asset"
+                class="more-btn"
+              >
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #menu="matMenu">
+                <button mat-menu-item (click)="openEditAssetDialog(asset)">
+                  <mat-icon>edit</mat-icon>
+                  <span>Edit details</span>
+                </button>
+                <button mat-menu-item (click)="openHistoryDialog(asset)">
+                  <mat-icon>history</mat-icon>
+                  <span>Balance history</span>
+                </button>
+                <button mat-menu-item (click)="onDeleteAsset(asset)" class="danger-action">
+                  <mat-icon color="warn">delete</mat-icon>
+                  <span>Delete asset</span>
+                </button>
+              </mat-menu>
+            </mat-card-header>
 
-          <!-- Card Actions -->
-          <mat-card-actions class="card-actions">
-            <button
-              mat-flat-button
-              color="primary"
-              (click)="openUpdateBalanceDialog(asset)"
-              class="action-update-btn"
-            >
-              <mat-icon>sync_alt</mat-icon>
-              <span>Update balance</span>
-            </button>
-            <button
-              mat-stroked-button
-              (click)="openHistoryDialog(asset)"
-              class="action-history-btn"
-            >
-              <mat-icon>history</mat-icon>
-              <span>History</span>
-            </button>
-          </mat-card-actions>
+            <mat-card-content class="card-content">
+              <div class="balance-container">
+                <div class="primary-balance">
+                  {{ asset.balance | money:asset.currency }}
+                </div>
+                @if (asset.currency !== 'PLN') {
+                  <div class="exchange-equivalent">
+                    ≈ {{ getAssetBaseValue(asset) | money:'PLN' }}
+                    <span class="rate-note">
+                      (1 {{ asset.currency }} = {{ getValuation(asset.id)?.fxRateToBase || asset.exchangeRateToBase || 1 }} PLN)
+                    </span>
+                  </div>
+                }
+              </div>
+
+              <div class="card-meta-row">
+                <span class="updated-date">Updated {{ asset.updatedAt | date:'mediumDate' }}</span>
+              </div>
+
+              <div class="eligibility-toggle-row">
+                <mat-slide-toggle
+                  [checked]="asset.isGoalEligible"
+                  (change)="onToggleGoalEligible(asset)"
+                  color="primary"
+                >
+                  <span class="toggle-label">Goal eligibility</span>
+                </mat-slide-toggle>
+                <span class="toggle-status" [class.active]="asset.isGoalEligible">
+                  {{ asset.isGoalEligible ? 'Counts towards goals' : 'Excluded from goals' }}
+                </span>
+              </div>
+            </mat-card-content>
+
+            <mat-divider></mat-divider>
+
+            <mat-card-actions class="card-actions">
+              <button
+                mat-flat-button
+                color="primary"
+                (click)="openUpdateBalanceDialog(asset)"
+                class="action-update-btn"
+              >
+                <mat-icon>sync_alt</mat-icon>
+                <span>Update balance</span>
+              </button>
+              <button
+                mat-stroked-button
+                (click)="openHistoryDialog(asset)"
+                class="action-history-btn"
+              >
+                <mat-icon>history</mat-icon>
+                <span>History</span>
+              </button>
+            </mat-card-actions>
+          }
         </mat-card>
       } @empty {
         <div class="no-filter-results">

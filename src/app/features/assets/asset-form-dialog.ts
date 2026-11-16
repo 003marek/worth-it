@@ -1,12 +1,18 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { form, FormField, FormRoot, min, required } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import {
+  MAT_DIALOG_DATA,
+  MatDialog,
+  MatDialogModule,
+  MatDialogRef,
+} from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { Asset, AssetType } from '../../core/models/worth-it.model';
+import { EmployerStockFormDialog } from './employer-stock/employer-stock-form-dialog';
 
 export interface AssetFormValue {
   name: string;
@@ -67,7 +73,10 @@ export const CURRENCY_OPTIONS = ['PLN', 'EUR', 'USD', 'GBP', 'CHF'] as const;
 
         <mat-form-field appearance="outline">
           <mat-label>Asset type</mat-label>
-          <mat-select [formField]="assetForm.type">
+          <mat-select
+            [formField]="assetForm.type"
+            (selectionChange)="onTypeSelected($event.value)"
+          >
             @for (option of typeOptions; track option.value) {
               <mat-option [value]="option.value">{{ option.label }}</mat-option>
             }
@@ -179,6 +188,7 @@ export const CURRENCY_OPTIONS = ['PLN', 'EUR', 'USD', 'GBP', 'CHF'] as const;
 export class AssetFormDialog {
   protected readonly data = inject<{ asset?: Asset }>(MAT_DIALOG_DATA, { optional: true }) ?? {};
   private readonly dialogRef = inject(MatDialogRef<AssetFormDialog, AssetDialogResult>);
+  private readonly dialog = inject(MatDialog, { optional: true });
 
   protected readonly typeOptions = ASSET_TYPE_OPTIONS;
   protected readonly currencyOptions = CURRENCY_OPTIONS;
@@ -207,6 +217,10 @@ export class AssetFormDialog {
       submission: {
         action: async () => {
           const val = this.model();
+          if (val.type === 'employer_stock') {
+            this.delegateToEmployerStockDialog();
+            return undefined;
+          }
           this.dialogRef.close({
             name: val.name.trim(),
             type: val.type,
@@ -222,4 +236,24 @@ export class AssetFormDialog {
       },
     }
   );
+
+  protected onTypeSelected(type: AssetType): void {
+    if (type === 'employer_stock') {
+      this.delegateToEmployerStockDialog();
+    }
+  }
+
+  protected delegateToEmployerStockDialog(): void {
+    const val = this.model();
+    this.dialogRef.close();
+    this.dialog?.open(EmployerStockFormDialog, {
+      data: {
+        asset: this.data.asset,
+        initialName: val.name.trim(),
+        initialCurrency: val.currency === 'PLN' ? 'USD' : val.currency,
+        initialIsGoalEligible: val.isGoalEligible,
+      },
+      width: '520px',
+    });
+  }
 }

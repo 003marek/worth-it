@@ -1,7 +1,7 @@
 # Worth It – Engineering Conventions
 
-Read this before writing any code. The product spec is `Worth_It_Product_Specification.docx`
-(summarised in the brief you received). Reference app for patterns: `C:\Users\marek\source\repos\seen-it`.
+Read this before writing any code. The product spec is `PRODUCT_SPECIFICATION.md`.
+Reference app for patterns: `C:\Users\marek\source\repos\seen-it`.
 
 ## Stack
 - Angular 22 (standalone, zoneless, `ChangeDetectionStrategy.OnPush` everywhere), Angular Material 22 (M3).

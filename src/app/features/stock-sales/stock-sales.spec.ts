@@ -9,6 +9,7 @@ import { WorthItStore } from '../../core/stores/worth-it.store';
 import { StockSales } from './stock-sales';
 import { StockSaleDialog, StockSaleDialogResult } from './stock-sale-dialog';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { submit } from '@angular/forms/signals';
 import { StockSale } from '../../core/models/worth-it.model';
 
 describe('StockSales', () => {
@@ -105,8 +106,40 @@ describe('StockSales', () => {
     expect(sorted[1].companyOrTicker).toBe('AAPL');
   });
 
-  it('opens StockSaleDialog and adds sale on completion', async () => {
+  it('displays linked employer stock badge when sale has sourceAssetId', async () => {
+    const asset = await store.addAsset({
+      name: 'Alphabet Inc.',
+      type: 'employer_stock',
+      currency: 'USD',
+      balance: 0,
+      employerStock: {
+        tickerSymbol: 'GOOGL',
+      },
+    });
+
+    await store.addStockSale({
+      sourceAssetId: asset.id,
+      companyOrTicker: 'GOOGL',
+      saleDate: '2026-03-10',
+      sharesSold: 5,
+      pricePerShare: 175,
+      currency: 'USD',
+      grossValue: 875,
+    });
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const badge = el.querySelector('.source-asset-chip');
+    expect(badge).toBeTruthy();
+    expect(badge?.textContent).toContain('Alphabet Inc.');
+    expect(badge?.textContent).toContain('Deducted from held shares');
+  });
+
+  it('opens StockSaleDialog and adds sale with sourceAssetId on completion', async () => {
     const dialogResult: StockSaleDialogResult = {
+      sourceAssetId: 'emp-123',
       companyOrTicker: 'TSLA',
       saleDate: '2026-04-10',
       sharesSold: 5,
@@ -120,11 +153,15 @@ describe('StockSales', () => {
       afterClosed: () => of(dialogResult),
     });
 
-    await component.openAddDialog();
+    await component.openAddDialog('emp-123');
 
-    expect(mockDialog.open).toHaveBeenCalled();
+    expect(mockDialog.open).toHaveBeenCalledWith(StockSaleDialog, {
+      data: { preselectedAssetId: 'emp-123' },
+      autoFocus: 'first-tabbable',
+    });
     expect(store.stockSales()).toHaveLength(1);
     expect(store.stockSales()[0].companyOrTicker).toBe('TSLA');
+    expect(store.stockSales()[0].sourceAssetId).toBe('emp-123');
     expect(store.stockSales()[0].grossValue).toBe(1000);
   });
 
@@ -140,6 +177,7 @@ describe('StockSales', () => {
     });
 
     const updateResult: StockSaleDialogResult = {
+      sourceAssetId: 'asset-msft',
       companyOrTicker: 'MSFT',
       saleDate: '2026-02-15',
       sharesSold: 12,
@@ -157,6 +195,7 @@ describe('StockSales', () => {
 
     const updated = store.stockSales().find((s) => s.id === sale.id);
     expect(updated?.sharesSold).toBe(12);
+    expect(updated?.sourceAssetId).toBe('asset-msft');
     expect(updated?.grossValue).toBe(4800);
   });
 
@@ -243,5 +282,111 @@ describe('StockSaleDialog', () => {
 
     expect(comp.calculatedGrossValue()).toBe(1800);
     expect(comp.livePlnDisplay()).toBe(7200);
+  });
+
+  it('prefills details from preselectedAssetId and shows amber accounting banner', async () => {
+    TestBed.configureTestingModule({
+      imports: [StockSaleDialog],
+      providers: [
+        StorageService,
+        FinancialCalculatorService,
+        WorthItStore,
+        {
+          provide: MAT_DIALOG_DATA,
+          useValue: { preselectedAssetId: 'googl-asset-id' },
+        },
+        { provide: MatDialogRef, useValue: { close: vi.fn() } },
+      ],
+    });
+
+    const storage = TestBed.inject(StorageService);
+    await storage.open();
+    await storage.clearAllData();
+    const store = TestBed.inject(WorthItStore);
+    await store.loadAll();
+
+    await store.addAsset({
+      id: 'googl-asset-id',
+      name: 'Google LLC',
+      type: 'employer_stock',
+      currency: 'USD',
+      balance: 0,
+      employerStock: {
+        tickerSymbol: 'GOOGL',
+      },
+    });
+
+    const fixture = TestBed.createComponent(StockSaleDialog);
+    const comp = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(comp.model().sourceAssetId).toBe('googl-asset-id');
+    expect(comp.model().companyOrTicker).toBe('GOOGL');
+    expect(comp.model().currency).toBe('USD');
+    expect(comp.selectedSourceAsset()?.name).toBe('Google LLC');
+
+    const el = fixture.nativeElement as HTMLElement;
+    const banner = el.querySelector('.source-asset-notice');
+    expect(banner).toBeTruthy();
+    expect(banner?.textContent).toContain("Selling 1 shares will deduct them from Google LLC's held vested shares");
+    expect(banner?.textContent).toContain('Sale proceeds do not automatically add to cash accounts');
+  });
+
+  it('submits dialog returning sourceAssetId', async () => {
+    const closeSpy = vi.fn();
+    TestBed.configureTestingModule({
+      imports: [StockSaleDialog],
+      providers: [
+        StorageService,
+        FinancialCalculatorService,
+        WorthItStore,
+        {
+          provide: MAT_DIALOG_DATA,
+          useValue: { preselectedAssetId: 'test-asset' },
+        },
+        { provide: MatDialogRef, useValue: { close: closeSpy } },
+      ],
+    });
+
+    const storage = TestBed.inject(StorageService);
+    await storage.open();
+    await storage.clearAllData();
+    const store = TestBed.inject(WorthItStore);
+    await store.loadAll();
+
+    await store.addAsset({
+      id: 'test-asset',
+      name: 'Acme Corp',
+      type: 'employer_stock',
+      currency: 'USD',
+      balance: 0,
+      employerStock: { tickerSymbol: 'ACME' },
+    });
+
+    const fixture = TestBed.createComponent(StockSaleDialog);
+    const comp = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    comp.model.update((m) => ({
+      ...m,
+      sharesSold: 10,
+      pricePerShare: 50,
+      currency: 'USD',
+      saleDate: '2026-03-15',
+    }));
+
+    await submit(comp.saleForm);
+
+    expect(closeSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceAssetId: 'test-asset',
+        companyOrTicker: 'ACME',
+        sharesSold: 10,
+        pricePerShare: 50,
+        grossValue: 500,
+      })
+    );
   });
 });

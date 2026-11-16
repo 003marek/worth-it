@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ProjectedInflow } from '../asset-types/asset-type-handler';
 import {
   Asset,
   ExpenseCategory,
@@ -500,6 +501,151 @@ describe('FinancialCalculatorService', () => {
       // 20000 deficit / 4000 surplus = 5.0 months
       expect(status.estimatedCompletionMonths).toBe(5);
       expect(status.estimatedCompletionDate).toBeTruthy();
+    });
+  });
+
+  describe('Inflow-Aware Projections (projectFundingDate & summaries)', () => {
+    const refDate = new Date(2026, 10, 1); // 2026-11-01 local
+
+    it('returns ref date and 0 months when threshold <= 0', () => {
+      expect(service.projectFundingDate(0, 5000, [], refDate)).toEqual({
+        date: '2026-11-01',
+        months: 0,
+      });
+      expect(service.projectFundingDate(-100, 0, [], refDate)).toEqual({
+        date: '2026-11-01',
+        months: 0,
+      });
+    });
+
+    it('reproduces existing linear results exactly when inflows array is empty', () => {
+      const noInflows = service.projectFundingDate(20000, 4000, [], refDate);
+      expect(noInflows).toEqual({
+        date: service.calculateDateFromNow(5, refDate)!,
+        months: 5,
+      });
+      expect(service.projectFundingDate(20000, 0, [], refDate)).toBeNull();
+      expect(service.projectFundingDate(20000, -1000, [], refDate)).toBeNull();
+    });
+
+    it('combines positive monthly surplus with discrete projected inflows', () => {
+      const inflows: ProjectedInflow[] = [
+        {
+          date: '2027-01-01', // ~61 days (~2 months) from 2026-11-01
+          amountInBase: 10000,
+          assetId: 'es_1',
+          sourceId: 't1',
+          label: 'GOOGL vest · 10 sh',
+        },
+      ];
+
+      // Threshold 15,000, surplus 3,000/mo:
+      // At 2027-01-01 (~2.0 months): surplus (~6,012) + inflow (10,000) = ~16,012 >= 15,000 -> reached on vest date!
+      const reachedOnVest = service.projectFundingDate(
+        15000,
+        3000,
+        inflows,
+        refDate
+      );
+      expect(reachedOnVest?.date).toBe('2027-01-01');
+      expect(reachedOnVest?.months).toBe(2);
+
+      // Threshold 25,000, surplus 3,000/mo:
+      // After 10,000 inflow, remaining needed from surplus is 15,000 -> 15,000 / 3,000 = 5.0 months total
+      const reachedAfterVest = service.projectFundingDate(
+        25000,
+        3000,
+        inflows,
+        refDate
+      );
+      expect(reachedAfterVest?.months).toBe(5);
+      expect(reachedAfterVest?.date).toBe(service.calculateDateFromNow(5, refDate));
+
+      // Threshold 3,000, surplus 3,000/mo:
+      // Reached at 1.0 month (~2026-12-01), BEFORE the 2027-01-01 inflow!
+      const reachedBeforeVest = service.projectFundingDate(
+        3000,
+        3000,
+        inflows,
+        refDate
+      );
+      expect(reachedBeforeVest?.months).toBe(1);
+      expect(reachedBeforeVest?.date).toBe('2026-12-01');
+    });
+
+    it('completes goals via inflows alone when monthly surplus is zero or negative', () => {
+      const inflows: ProjectedInflow[] = [
+        {
+          date: '2027-02-01',
+          amountInBase: 12000,
+          assetId: 'es_1',
+          sourceId: 't1',
+          label: 'GOOGL vest · 15 sh',
+        },
+        {
+          date: '2027-05-01',
+          amountInBase: 12000,
+          assetId: 'es_1',
+          sourceId: 't2',
+          label: 'GOOGL vest · 15 sh',
+        },
+      ];
+
+      // Zero surplus: 20,000 threshold reached on second vest (12k + 12k = 24k >= 20k)
+      const zeroSurplus = service.projectFundingDate(20000, 0, inflows, refDate);
+      expect(zeroSurplus?.date).toBe('2027-05-01');
+
+      // Zero surplus, insufficient inflows (30,000 > 24,000) -> null
+      expect(service.projectFundingDate(30000, 0, inflows, refDate)).toBeNull();
+
+      // Negative surplus (-1,000/mo): at 2027-02-01 (~3.02 months), F(t) ≈ 12,000 - 3,022 = 8,978 >= 8,000
+      const negativeSurplus = service.projectFundingDate(
+        8000,
+        -1000,
+        inflows,
+        refDate
+      );
+      expect(negativeSurplus?.date).toBe('2027-02-01');
+    });
+
+    it('includes projectedInflowsTotal and assumptions in calculateProjectionSummary', () => {
+      const goals: Goal[] = [
+        {
+          id: 'g1',
+          name: 'Car',
+          targetAmount: 20000,
+          order: 0,
+          isCompleted: false,
+          createdAt: '',
+          updatedAt: '',
+        },
+      ];
+      const inflows: ProjectedInflow[] = [
+        {
+          date: '2027-02-01',
+          amountInBase: 25000,
+          assetId: 'es_1',
+          sourceId: 't1',
+          label: 'GOOGL vest · 25 sh',
+        },
+      ];
+
+      const summary = service.calculateProjectionSummary(
+        [],
+        [],
+        null,
+        goals,
+        0,
+        0,
+        refDate,
+        inflows
+      );
+
+      expect(summary.projectedInflowsTotal).toBe(25000);
+      expect(summary.assumptions).toEqual([
+        "Includes 1 future stock vest valued at today's price and NBP rate",
+      ]);
+      expect(summary.goalsTimeline[0].estimatedCompletionDate).toBe('2027-02-01');
     });
   });
 });

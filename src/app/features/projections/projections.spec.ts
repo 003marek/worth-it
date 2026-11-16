@@ -278,4 +278,70 @@ describe('Projections Component', () => {
     const lastRowText = rows?.[4]?.textContent;
     expect(lastRowText).toContain('5 Years');
   });
+
+  describe('Upcoming Scheduled Vests (UX Screen 8)', () => {
+    it('hides Upcoming Scheduled Vests card when projectedInflows is empty', async () => {
+      const fixture = TestBed.createComponent(Projections);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('.vests-card')).toBeNull();
+    });
+
+    it('renders Upcoming Scheduled Vests card when projectedInflows is non-empty', async () => {
+      const asset = await store.addAsset({
+        name: 'Alphabet Inc.',
+        type: 'employer_stock',
+        currency: 'PLN',
+        balance: 0,
+        isGoalEligible: true,
+        employerStock: {
+          tickerSymbol: 'GOOGL',
+          manualPrice: 200,
+        },
+      });
+
+      await store.addStockGrant({
+        assetId: asset.id,
+        name: '2026 Grant',
+        grantDate: '2026-01-01',
+        totalShares: 100,
+        schedule: {
+          frequency: 'annual',
+          durationMonths: 24,
+          cliffMonths: 0,
+        },
+        isScheduleCustomized: false,
+        tranches: [
+          { id: 'tr1', vestDate: '2026-12-15', shares: 25 },
+          { id: 'tr2', vestDate: '2027-12-15', shares: 75 },
+        ],
+      });
+
+      const fixture = TestBed.createComponent(Projections);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(store.projectedInflows().length).toBe(2);
+
+      const el = fixture.nativeElement as HTMLElement;
+      const vestsCard = el.querySelector('.vests-card');
+      expect(vestsCard).toBeTruthy();
+      expect(vestsCard?.textContent).toContain('Upcoming Scheduled Vests');
+      expect(vestsCard?.textContent).toContain('2 future vests');
+
+      // Milestone items
+      const items = vestsCard?.querySelectorAll('.vest-milestone-item');
+      expect(items?.length).toBe(2);
+      expect(items?.[0]?.textContent).toContain('15 Dec 2026');
+      expect(items?.[0]?.textContent).toContain('GOOGL vest');
+      expect(items?.[0]?.textContent).toContain('+5000');
+
+      // Assumptions callout
+      const assumptions = vestsCard?.querySelector('.vests-assumptions-callout');
+      expect(assumptions).toBeTruthy();
+      expect(assumptions?.textContent).toMatch(/Includes 2 future stock vests/i);
+    });
+  });
 });

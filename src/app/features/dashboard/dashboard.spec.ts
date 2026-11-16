@@ -206,4 +206,62 @@ describe('Dashboard Component', () => {
     expect(activeGoalCard).toBeTruthy();
     expect(activeGoalCard?.textContent).toContain('Car');
   });
+
+  it('surfaces unvested employer stock pipeline clearly as projected in financial overview and asset breakdown', async () => {
+    await store.updateSettings({ defaultDashboard: 'financial_overview' });
+
+    const asset = await store.addAsset({
+      name: 'Google LLC',
+      type: 'employer_stock',
+      currency: 'PLN',
+      balance: 0,
+      isGoalEligible: true,
+      employerStock: {
+        tickerSymbol: 'GOOGL',
+        manualPrice: 100,
+      },
+    });
+
+    await store.setVestedSharesBaseline(asset.id, 10, '2026-01-01');
+
+    await store.addStockGrant({
+      assetId: asset.id,
+      name: '2027 Promo Grant',
+      grantDate: '2026-01-01',
+      totalShares: 40,
+      schedule: {
+        frequency: 'quarterly',
+        durationMonths: 24,
+        cliffMonths: 0,
+      },
+      isScheduleCustomized: false,
+      tranches: [
+        { id: 'tr1', vestDate: '2027-06-15', shares: 20 },
+        { id: 'tr2', vestDate: '2027-12-15', shares: 20 },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    // Unvested summary banner is rendered in financial overview
+    const banner = compiled.querySelector('.unvested-summary-banner');
+    expect(banner).toBeTruthy();
+    expect(banner?.textContent).toContain('Unvested Employer Stock Pipeline (Projected Only)');
+    expect(banner?.textContent).toContain('never counted in your actual wealth today');
+
+    // Asset breakdown shows held shares and unvested pipeline as projected
+    const assetsList = compiled.querySelector('.assets-list');
+    expect(assetsList).toBeTruthy();
+    expect(assetsList?.textContent).toContain('Google LLC');
+    expect(assetsList?.textContent).toContain('Unvested pipeline (projected only):');
+    expect(assetsList?.textContent).toContain('40 sh');
+
+    // Actual wealth does NOT include unvested shares:
+    // Only held shares (10 baseline * 100 = 1000 PLN) count toward totalWealth
+    expect(store.wealthSummary().totalWealth).toBe(1000);
+  });
 });

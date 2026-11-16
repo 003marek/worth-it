@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 import Dexie, { Table } from 'dexie';
+import { StockGrant } from '../models/employer-stock.model';
+import { FxRate, MarketQuote } from '../models/market-data.model';
 import {
   ApplicationSettings,
   Asset,
@@ -37,6 +39,9 @@ export class StorageService extends Dexie {
   expenseCategories!: Table<ExpenseCategory, string>;
   expenseRecords!: Table<ExpenseRecord, string>;
   stockSales!: Table<StockSale, string>;
+  stockGrants!: Table<StockGrant, string>;
+  marketQuotes!: Table<MarketQuote, string>;
+  fxRates!: Table<FxRate, string>;
   settings!: Table<ApplicationSettings, string>;
 
   constructor() {
@@ -51,6 +56,21 @@ export class StorageService extends Dexie {
       expenseCategories: 'id, order, isEnabled',
       expenseRecords: 'id, categoryId, date, isActual',
       stockSales: 'id, companyOrTicker, saleDate',
+      settings: 'id',
+    });
+
+    this.version(2).stores({
+      goals: 'id, order, isCompleted, createdAt',
+      assets: 'id, type, currency, isGoalEligible, updatedAt',
+      assetHistory: 'id, assetId, date',
+      incomeSources: 'id, type, frequency, isEnabled',
+      incomeRecords: 'id, incomeSourceId, receivedDate, isActual',
+      expenseCategories: 'id, order, isEnabled',
+      expenseRecords: 'id, categoryId, date, isActual',
+      stockSales: 'id, companyOrTicker, saleDate',
+      stockGrants: 'id, assetId',
+      marketQuotes: 'symbol',
+      fxRates: 'pair',
       settings: 'id',
     });
 
@@ -126,10 +146,18 @@ export class StorageService extends Dexie {
   }
 
   async deleteAsset(id: string): Promise<void> {
-    await this.transaction('rw', [this.assets, this.assetHistory], async () => {
-      await this.assets.delete(id);
-      await this.assetHistory.where('assetId').equals(id).delete();
-    });
+    await this.transaction(
+      'rw',
+      [this.assets, this.assetHistory, this.stockGrants, this.stockSales],
+      async () => {
+        await this.assets.delete(id);
+        await this.assetHistory.where('assetId').equals(id).delete();
+        await this.stockGrants.where('assetId').equals(id).delete();
+        await this.stockSales
+          .filter((sale) => sale.sourceAssetId === id)
+          .modify({ sourceAssetId: undefined });
+      }
+    );
   }
 
   // --- Asset Balance History ---
@@ -260,6 +288,63 @@ export class StorageService extends Dexie {
     await this.stockSales.delete(id);
   }
 
+  // --- Stock Grants (arch §7) ---
+  async getAllStockGrants(): Promise<StockGrant[]> {
+    const grants = await this.stockGrants.toArray();
+    return grants.sort((a, b) => a.grantDate.localeCompare(b.grantDate));
+  }
+
+  async getStockGrants(assetId: string): Promise<StockGrant[]> {
+    const grants = await this.stockGrants.where('assetId').equals(assetId).toArray();
+    return grants.sort((a, b) => a.grantDate.localeCompare(b.grantDate));
+  }
+
+  async getStockGrant(id: string): Promise<StockGrant | undefined> {
+    return this.stockGrants.get(id);
+  }
+
+  async saveStockGrant(grant: StockGrant): Promise<void> {
+    await this.stockGrants.put(grant);
+  }
+
+  async deleteStockGrant(id: string): Promise<void> {
+    await this.stockGrants.delete(id);
+  }
+
+  // --- Market Quotes (arch §7) ---
+  async getAllMarketQuotes(): Promise<MarketQuote[]> {
+    return this.marketQuotes.toArray();
+  }
+
+  async getMarketQuote(symbol: string): Promise<MarketQuote | undefined> {
+    return this.marketQuotes.get(symbol.trim().toUpperCase());
+  }
+
+  async saveMarketQuote(quote: MarketQuote): Promise<void> {
+    await this.marketQuotes.put({
+      ...quote,
+      symbol: quote.symbol.trim().toUpperCase(),
+    });
+  }
+
+  // --- FX Rates (arch §7) ---
+  async getAllFxRates(): Promise<FxRate[]> {
+    return this.fxRates.toArray();
+  }
+
+  async getFxRate(pair: string): Promise<FxRate | undefined> {
+    return this.fxRates.get(pair.trim().toUpperCase());
+  }
+
+  async saveFxRate(rate: FxRate): Promise<void> {
+    await this.fxRates.put({
+      ...rate,
+      pair: rate.pair.trim().toUpperCase(),
+      from: rate.from.trim().toUpperCase(),
+      to: rate.to.trim().toUpperCase(),
+    });
+  }
+
   // --- Clear / Reset ---
   async clearAllData(): Promise<void> {
     await this.transaction(
@@ -273,6 +358,9 @@ export class StorageService extends Dexie {
         this.expenseCategories,
         this.expenseRecords,
         this.stockSales,
+        this.stockGrants,
+        this.marketQuotes,
+        this.fxRates,
         this.settings,
       ],
       async () => {
@@ -285,6 +373,9 @@ export class StorageService extends Dexie {
           this.expenseCategories.clear(),
           this.expenseRecords.clear(),
           this.stockSales.clear(),
+          this.stockGrants.clear(),
+          this.marketQuotes.clear(),
+          this.fxRates.clear(),
           this.settings.clear(),
         ]);
         await this.settings.add({ ...DEFAULT_SETTINGS });
@@ -382,10 +473,17 @@ export class StorageService extends Dexie {
       },
       {
         id: 'asset-5',
-        name: 'Employer Stock (RSUs)',
+        name: 'Alphabet RSU (GOOGL)',
         type: 'employer_stock',
         currency: 'USD',
-        balance: 12000,
+        balance: 0,
+        employerStock: {
+          tickerSymbol: 'GOOGL',
+          vestedSharesBaseline: 40,
+          vestedSharesBaselineDate: '2026-01-01',
+          manualPrice: 185,
+          manualFxRate: 4.0,
+        },
         isGoalEligible: true,
         updatedAt: '2026-03-31T12:00:00.000Z',
       },
@@ -397,6 +495,76 @@ export class StorageService extends Dexie {
         balance: 32000,
         isGoalEligible: false,
         updatedAt: '2026-03-31T12:00:00.000Z',
+      },
+    ];
+
+    const demoStockGrants: StockGrant[] = [
+      {
+        id: 'grant-1',
+        assetId: 'asset-5',
+        name: '2025 Annual RSU Grant',
+        grantDate: '2025-03-15',
+        totalShares: 120,
+        schedule: {
+          frequency: 'quarterly',
+          durationMonths: 24,
+          cliffMonths: 6,
+        },
+        tranches: [
+          { id: 'tr-1-1', vestDate: '2025-09-15', shares: 30 },
+          { id: 'tr-1-2', vestDate: '2025-12-15', shares: 15 },
+          { id: 'tr-1-3', vestDate: '2026-03-15', shares: 15 },
+          { id: 'tr-1-4', vestDate: '2026-06-15', shares: 15 },
+          { id: 'tr-1-5', vestDate: '2026-09-15', shares: 15 },
+          { id: 'tr-1-6', vestDate: '2026-12-15', shares: 15 },
+          { id: 'tr-1-7', vestDate: '2027-03-15', shares: 15 },
+        ],
+        isScheduleCustomized: false,
+        createdAt: '2025-03-15T10:00:00.000Z',
+        updatedAt: '2025-03-15T10:00:00.000Z',
+      },
+      {
+        id: 'grant-2',
+        assetId: 'asset-5',
+        name: '2026 Promo RSU Grant',
+        grantDate: '2026-06-15',
+        totalShares: 48,
+        schedule: {
+          frequency: 'quarterly',
+          durationMonths: 12,
+          cliffMonths: 0,
+        },
+        tranches: [
+          { id: 'tr-2-1', vestDate: '2026-09-15', shares: 12 },
+          { id: 'tr-2-2', vestDate: '2026-12-15', shares: 12 },
+          { id: 'tr-2-3', vestDate: '2027-03-15', shares: 12 },
+          { id: 'tr-2-4', vestDate: '2027-06-15', shares: 12 },
+        ],
+        isScheduleCustomized: false,
+        createdAt: '2026-06-15T10:00:00.000Z',
+        updatedAt: '2026-06-15T10:00:00.000Z',
+      },
+    ];
+
+    const demoMarketQuotes: MarketQuote[] = [
+      {
+        symbol: 'GOOGL',
+        price: 185,
+        currency: 'USD',
+        name: 'Alphabet Inc.',
+        exchange: 'NASDAQ',
+        fetchedAt: '2026-03-31T12:00:00.000Z',
+      },
+    ];
+
+    const demoFxRates: FxRate[] = [
+      {
+        pair: 'USD/PLN',
+        from: 'USD',
+        to: 'PLN',
+        rate: 4.0,
+        effectiveDate: '2026-03-31',
+        fetchedAt: '2026-03-31T12:00:00.000Z',
       },
     ];
 
@@ -644,13 +812,14 @@ export class StorageService extends Dexie {
     const demoStockSales: StockSale[] = [
       {
         id: 'sale-1',
-        companyOrTicker: 'ACME',
+        sourceAssetId: 'asset-5',
+        companyOrTicker: 'GOOGL',
         saleDate: '2026-03-20',
-        sharesSold: 30,
-        pricePerShare: 125,
+        sharesSold: 10,
+        pricePerShare: 180,
         currency: 'USD',
-        grossValue: 3750,
-        plnEquivalent: 15000,
+        grossValue: 1800,
+        plnEquivalent: 7200,
         notes: 'Q1 RSU vesting tranche sale',
       },
     ];
@@ -666,6 +835,9 @@ export class StorageService extends Dexie {
         this.expenseCategories,
         this.expenseRecords,
         this.stockSales,
+        this.stockGrants,
+        this.marketQuotes,
+        this.fxRates,
         this.settings,
       ],
       async () => {
@@ -677,6 +849,9 @@ export class StorageService extends Dexie {
         await this.expenseCategories.bulkPut(demoExpenseCategories);
         await this.expenseRecords.bulkPut(demoExpenseRecords);
         await this.stockSales.bulkPut(demoStockSales);
+        await this.stockGrants.bulkPut(demoStockGrants);
+        await this.marketQuotes.bulkPut(demoMarketQuotes);
+        await this.fxRates.bulkPut(demoFxRates);
         await this.settings.put({ ...DEFAULT_SETTINGS });
       }
     );
@@ -693,6 +868,9 @@ export class StorageService extends Dexie {
       expenseCategories,
       expenseRecords,
       stockSales,
+      stockGrants,
+      marketQuotes,
+      fxRates,
       settings,
     ] = await Promise.all([
       this.goals.toArray(),
@@ -703,11 +881,14 @@ export class StorageService extends Dexie {
       this.expenseCategories.toArray(),
       this.expenseRecords.toArray(),
       this.stockSales.toArray(),
+      this.stockGrants.toArray(),
+      this.marketQuotes.toArray(),
+      this.fxRates.toArray(),
       this.settings.toArray(),
     ]);
 
     const backupData: WorthItBackupData = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       appName: 'Worth It',
       data: {
@@ -719,6 +900,9 @@ export class StorageService extends Dexie {
         expenseCategories,
         expenseRecords,
         stockSales,
+        stockGrants,
+        marketQuotes,
+        fxRates,
         settings: settings.length > 0 ? settings : [{ ...DEFAULT_SETTINGS }],
       },
     };
@@ -758,6 +942,9 @@ export class StorageService extends Dexie {
     const expenseCategories = (payload['expenseCategories'] ?? []) as ExpenseCategory[];
     const expenseRecords = (payload['expenseRecords'] ?? []) as ExpenseRecord[];
     const stockSales = (payload['stockSales'] ?? []) as StockSale[];
+    const stockGrants = (payload['stockGrants'] ?? []) as StockGrant[];
+    const marketQuotes = (payload['marketQuotes'] ?? []) as MarketQuote[];
+    const fxRates = (payload['fxRates'] ?? []) as FxRate[];
 
     let settingsList: ApplicationSettings[] = [];
     if (Array.isArray(payload['settings'])) {
@@ -778,6 +965,9 @@ export class StorageService extends Dexie {
       expenseCategories,
       expenseRecords,
       stockSales,
+      stockGrants,
+      marketQuotes,
+      fxRates,
       settings: settingsList,
     });
 
@@ -793,6 +983,9 @@ export class StorageService extends Dexie {
         this.expenseCategories,
         this.expenseRecords,
         this.stockSales,
+        this.stockGrants,
+        this.marketQuotes,
+        this.fxRates,
         this.settings,
       ],
       async () => {
@@ -805,6 +998,9 @@ export class StorageService extends Dexie {
           this.expenseCategories.clear(),
           this.expenseRecords.clear(),
           this.stockSales.clear(),
+          this.stockGrants.clear(),
+          this.marketQuotes.clear(),
+          this.fxRates.clear(),
           this.settings.clear(),
         ]);
 
@@ -818,6 +1014,9 @@ export class StorageService extends Dexie {
         }
         if (expenseRecords.length > 0) await this.expenseRecords.bulkAdd(expenseRecords);
         if (stockSales.length > 0) await this.stockSales.bulkAdd(stockSales);
+        if (stockGrants.length > 0) await this.stockGrants.bulkAdd(stockGrants);
+        if (marketQuotes.length > 0) await this.marketQuotes.bulkAdd(marketQuotes);
+        if (fxRates.length > 0) await this.fxRates.bulkAdd(fxRates);
 
         if (settingsList.length > 0) {
           await this.settings.bulkAdd(settingsList);
@@ -837,6 +1036,9 @@ export class StorageService extends Dexie {
     expenseCategories: ExpenseCategory[];
     expenseRecords: ExpenseRecord[];
     stockSales: StockSale[];
+    stockGrants: StockGrant[];
+    marketQuotes: MarketQuote[];
+    fxRates: FxRate[];
     settings: ApplicationSettings[];
   }): void {
     if (!Array.isArray(data.goals)) {
@@ -862,6 +1064,15 @@ export class StorageService extends Dexie {
     }
     if (!Array.isArray(data.stockSales)) {
       throw new Error('Validation failed: "stockSales" must be an array.');
+    }
+    if (!Array.isArray(data.stockGrants)) {
+      throw new Error('Validation failed: "stockGrants" must be an array.');
+    }
+    if (!Array.isArray(data.marketQuotes)) {
+      throw new Error('Validation failed: "marketQuotes" must be an array.');
+    }
+    if (!Array.isArray(data.fxRates)) {
+      throw new Error('Validation failed: "fxRates" must be an array.');
     }
 
     // 1. Validate Goals
@@ -946,7 +1157,6 @@ export class StorageService extends Dexie {
           `Validation failed: AssetBalanceHistory "${h.id}" must have a string "assetId".`
         );
       }
-      // Relationship check
       if (!assetIds.has(h.assetId)) {
         throw new Error(
           `Validation failed: AssetBalanceHistory "${h.id}" references non-existent assetId "${h.assetId}".`
@@ -1092,7 +1302,61 @@ export class StorageService extends Dexie {
       }
     }
 
-    // 9. Validate Settings
+    // 9. Validate StockGrants
+    const stockGrantIds = new Set<string>();
+    for (const g of data.stockGrants) {
+      if (!g.id || typeof g.id !== 'string') {
+        throw new Error('Validation failed: StockGrant must have a non-empty string "id".');
+      }
+      if (stockGrantIds.has(g.id)) {
+        throw new Error(`Validation failed: Duplicate StockGrant id "${g.id}".`);
+      }
+      stockGrantIds.add(g.id);
+      if (!g.assetId || typeof g.assetId !== 'string') {
+        throw new Error(`Validation failed: StockGrant "${g.id}" must have a string "assetId".`);
+      }
+      if (!assetIds.has(g.assetId)) {
+        throw new Error(
+          `Validation failed: StockGrant "${g.id}" references non-existent assetId "${g.assetId}".`
+        );
+      }
+      if (typeof g.grantDate !== 'string' || !g.grantDate.trim()) {
+        throw new Error(`Validation failed: StockGrant "${g.id}" must have a grantDate.`);
+      }
+      if (typeof g.totalShares !== 'number' || isNaN(g.totalShares) || g.totalShares <= 0) {
+        throw new Error(
+          `Validation failed: StockGrant "${g.id}" totalShares must be a positive number.`
+        );
+      }
+      if (!Array.isArray(g.tranches)) {
+        throw new Error(`Validation failed: StockGrant "${g.id}" tranches must be an array.`);
+      }
+    }
+
+    // 10. Validate MarketQuotes
+    for (const q of data.marketQuotes) {
+      if (!q.symbol || typeof q.symbol !== 'string') {
+        throw new Error('Validation failed: MarketQuote must have a non-empty string "symbol".');
+      }
+      if (typeof q.price !== 'number' || isNaN(q.price)) {
+        throw new Error(`Validation failed: MarketQuote "${q.symbol}" price must be a number.`);
+      }
+      if (!q.currency || typeof q.currency !== 'string') {
+        throw new Error(`Validation failed: MarketQuote "${q.symbol}" must have a currency.`);
+      }
+    }
+
+    // 11. Validate FxRates
+    for (const f of data.fxRates) {
+      if (!f.pair || typeof f.pair !== 'string') {
+        throw new Error('Validation failed: FxRate must have a non-empty string "pair".');
+      }
+      if (typeof f.rate !== 'number' || isNaN(f.rate)) {
+        throw new Error(`Validation failed: FxRate "${f.pair}" rate must be a number.`);
+      }
+    }
+
+    // 12. Validate Settings
     if (data.settings && data.settings.length > 0) {
       for (const st of data.settings) {
         if (!st.id) {

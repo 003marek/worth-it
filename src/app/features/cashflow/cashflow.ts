@@ -1502,12 +1502,16 @@ export class Cashflow {
   }
 
   // --- Expense Record Actions ---
-  protected async recordExpense(mode: 'individual' | 'monthly_total' = 'individual'): Promise<void> {
+  protected async recordExpense(
+    mode: 'individual' | 'monthly_total' = 'individual',
+    preset?: 'annual_stock_tax'
+  ): Promise<void> {
     const dialogRef = this.dialog.open(ExpenseRecordDialog, {
       data: {
         categories: this.store.expenseCategories(),
         defaultCurrency: this.baseCurrency(),
         initialMode: mode,
+        initialPreset: preset,
       },
     });
     const result = await firstValueFrom(dialogRef.afterClosed());

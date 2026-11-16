@@ -554,5 +554,66 @@ describe('Cashflow Component & Cash Flow Feature', () => {
       expect((comp as any).model().isReflectedInBalances).toBe(false);
       expect((comp as any).expenseForm().valid()).toBe(true);
     });
+
+    it('ExpenseRecordDialog applies Annual stock tax (PIT-38) preset with explanatory banner', () => {
+      const mockRef = { close: vi.fn() };
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        imports: [ExpenseRecordDialog],
+        providers: [
+          {
+            provide: MAT_DIALOG_DATA,
+            useValue: { categories: [], defaultCurrency: 'PLN', initialMode: 'individual' },
+          },
+          { provide: MatDialogRef, useValue: mockRef },
+        ],
+      });
+
+      const fixture = TestBed.createComponent(ExpenseRecordDialog);
+      const comp = fixture.componentInstance;
+      fixture.detectChanges();
+
+      expect(comp.isAnnualStockTax()).toBe(false);
+
+      // Apply preset
+      comp.applyAnnualStockTaxPreset();
+      fixture.detectChanges();
+
+      const model = (comp as any).model();
+      expect(model.mode).toBe('individual');
+      expect(model.categoryName).toBe('Taxes / Annual Stock Tax');
+      expect(model.isActual).toBe(true);
+      expect(model.isReflectedInBalances).toBe(false);
+      expect(comp.isAnnualStockTax()).toBe(true);
+
+      const el = fixture.nativeElement as HTMLElement;
+      const banner = el.querySelector('.tax-preset-notice');
+      expect(banner).toBeTruthy();
+      expect(banner?.textContent).toContain('One-off annual stock tax reduces current wealth without increasing your recurring monthly expense baseline');
+    });
+
+    it('ExpenseRecordDialog initializes directly with annual_stock_tax preset', () => {
+      const mockRef = { close: vi.fn() };
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        imports: [ExpenseRecordDialog],
+        providers: [
+          {
+            provide: MAT_DIALOG_DATA,
+            useValue: { categories: [], defaultCurrency: 'PLN', initialPreset: 'annual_stock_tax' },
+          },
+          { provide: MatDialogRef, useValue: mockRef },
+        ],
+      });
+
+      const fixture = TestBed.createComponent(ExpenseRecordDialog);
+      const comp = fixture.componentInstance;
+      fixture.detectChanges();
+
+      const model = (comp as any).model();
+      expect(model.categoryName).toBe('Taxes / Annual Stock Tax');
+      expect(model.isActual).toBe(true);
+      expect(comp.isAnnualStockTax()).toBe(true);
+    });
   });
 });

@@ -1,10 +1,12 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { form, FormField, FormRoot, min, required } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleChange, MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
+import { MatChipsModule } from '@angular/material/chips';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectChange, MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
@@ -15,6 +17,7 @@ export interface ExpenseRecordDialogData {
   categories: ExpenseCategory[];
   defaultCurrency?: string;
   initialMode?: 'individual' | 'monthly_total';
+  initialPreset?: 'annual_stock_tax';
 }
 
 export interface ExpenseRecordFormValue {
@@ -36,7 +39,9 @@ export interface ExpenseRecordFormValue {
   imports: [
     MatDialogModule,
     MatCardModule,
+    MatChipsModule,
     MatFormFieldModule,
+    MatIconModule,
     MatInputModule,
     MatSelectModule,
     MatSlideToggleModule,
@@ -61,6 +66,31 @@ export interface ExpenseRecordFormValue {
             <mat-button-toggle value="monthly_total">Monthly Total Entry</mat-button-toggle>
           </mat-button-toggle-group>
         </div>
+
+        <!-- Quick Preset Row (PIT-38 Annual Stock Tax preset) -->
+        <div class="presets-row">
+          <button
+            type="button"
+            mat-stroked-button
+            class="preset-btn"
+            (click)="applyAnnualStockTaxPreset()"
+          >
+            <mat-icon>receipt_long</mat-icon>
+            Annual stock tax (PIT-38)
+          </button>
+        </div>
+
+        <!-- Explanatory note when Annual Stock Tax preset is active -->
+        @if (isAnnualStockTax()) {
+          <mat-card appearance="outlined" class="tax-preset-notice" role="note">
+            <mat-card-content class="notice-content">
+              <mat-icon class="notice-icon">info</mat-icon>
+              <span>
+                One-off annual stock tax reduces current wealth without increasing your recurring monthly expense baseline.
+              </span>
+            </mat-card-content>
+          </mat-card>
+        }
 
         @if (model().mode === 'individual' && data.categories.length > 0) {
           <mat-form-field appearance="outline">
@@ -160,6 +190,35 @@ export interface ExpenseRecordFormValue {
       justify-content: center;
       margin-bottom: 8px;
     }
+    .presets-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .preset-btn {
+      font-size: 0.8125rem;
+    }
+    .tax-preset-notice {
+      background-color: var(--mat-sys-surface-container);
+      border-left: 3px solid var(--mat-sys-tertiary, #e69a00);
+      margin: 2px 0 8px;
+    }
+    .notice-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8125rem;
+      color: var(--mat-sys-on-surface-variant);
+      line-height: 1.4;
+      padding: 8px 12px;
+    }
+    .notice-icon {
+      font-size: 1.125rem;
+      width: 1.125rem;
+      height: 1.125rem;
+      color: var(--mat-sys-tertiary, #e69a00);
+      flex-shrink: 0;
+    }
     .two-col {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -193,6 +252,10 @@ export class ExpenseRecordDialog {
 
   protected readonly model = signal<ExpenseRecordFormValue>(this.createInitialModel());
 
+  readonly isAnnualStockTax = computed(() => {
+    return this.model().categoryName.trim().toLowerCase() === 'taxes / annual stock tax';
+  });
+
   protected readonly expenseForm = form(
     this.model,
     (path) => {
@@ -215,6 +278,18 @@ export class ExpenseRecordDialog {
     }
   );
 
+  applyAnnualStockTaxPreset(): void {
+    this.model.update((prev) => ({
+      ...prev,
+      mode: 'individual',
+      categoryId: '',
+      categoryName: 'Taxes / Annual Stock Tax',
+      isActual: true,
+      isReflectedInBalances: false,
+      note: prev.note || 'Annual PIT-38 capital gains tax',
+    }));
+  }
+
   private createInitialModel(): ExpenseRecordFormValue {
     const today = new Date().toISOString().substring(0, 10);
     const currency = this.data.record?.currency || this.data.defaultCurrency || 'PLN';
@@ -230,6 +305,20 @@ export class ExpenseRecordDialog {
         isActual: this.data.record.isActual,
         isReflectedInBalances: this.data.record.isReflectedInBalances ?? false,
         note: this.data.record.note ?? '',
+      };
+    }
+
+    if (this.data.initialPreset === 'annual_stock_tax') {
+      return {
+        mode: 'individual',
+        categoryId: '',
+        categoryName: 'Taxes / Annual Stock Tax',
+        amount: 0,
+        currency,
+        date: today,
+        isActual: true,
+        isReflectedInBalances: false,
+        note: 'Annual PIT-38 capital gains tax',
       };
     }
 

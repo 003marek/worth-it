@@ -1,3 +1,6 @@
+import { EmployerStockDetails, StockGrant } from './employer-stock.model';
+import { FxRate, MarketQuote } from './market-data.model';
+
 export type GoalCompletionChoice = 'spend' | 'reserve' | 'release';
 
 export type AssetType =
@@ -42,6 +45,8 @@ export interface Asset {
    * Defaults to 1 when the asset is held in the base currency. Live FX is deferred (spec §15).
    */
   exchangeRateToBase?: number;
+  /** Type-specific configuration for employer_stock assets (arch §3.3). */
+  employerStock?: EmployerStockDetails;
   isGoalEligible: boolean;
   updatedAt: string;
 }
@@ -116,6 +121,8 @@ export interface FinancialCushionSettings {
 
 export interface StockSale {
   id: string;
+  /** Optional link to an employer_stock Asset.id (arch §3.3). */
+  sourceAssetId?: string;
   companyOrTicker: string;
   saleDate: string;
   sharesSold: number;
@@ -132,6 +139,7 @@ export interface ApplicationSettings {
   defaultDashboard: DashboardLayout;
   theme: AppTheme;
   cushion: FinancialCushionSettings;
+  twelveDataApiKey?: string;
 }
 
 export interface WealthSummary {
@@ -186,6 +194,8 @@ export interface ProjectionSummary {
   cushionMonthsToFund: number | null;
   cushionEstimatedCompletionDate: string | null;
   goalsTimeline: GoalFundingSummary[];
+  projectedInflowsTotal?: number;
+  assumptions?: string[];
 }
 
 export interface WorthItBackupData {
@@ -201,6 +211,9 @@ export interface WorthItBackupData {
     expenseCategories: ExpenseCategory[];
     expenseRecords: ExpenseRecord[];
     stockSales: StockSale[];
+    stockGrants: StockGrant[];
+    marketQuotes: MarketQuote[];
+    fxRates: FxRate[];
     settings: ApplicationSettings[];
   };
 }

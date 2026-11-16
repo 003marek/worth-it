@@ -6,6 +6,7 @@ import {
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
 } from '@angular/core';
+import { provideHttpClient, withFetch } from '@angular/common/http';
 import {
   TitleStrategy,
   provideRouter,
@@ -22,6 +23,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideZonelessChangeDetection(),
     provideBrowserGlobalErrorListeners(),
+    provideHttpClient(withFetch()),
     provideRouter(
       routes,
       withViewTransitions({ skipInitialTransition: true }),
