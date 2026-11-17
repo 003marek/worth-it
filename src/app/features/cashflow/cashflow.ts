@@ -1152,18 +1152,34 @@ import { SalaryUpdateDialog } from './salary-update-dialog';
     .baseline-inputs {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 1rem 1.25rem;
       flex-wrap: wrap;
     }
 
     .baseline-amount-field {
+      width: 100%;
       max-width: 280px;
-      margin-bottom: -1.25rem;
     }
 
     .cushion-sync-check {
       font-size: 0.875rem;
       color: var(--mat-sys-on-surface);
+      padding: 4px 0;
+
+      ::ng-deep .mdc-form-field {
+        align-items: flex-start;
+      }
+
+      ::ng-deep .mdc-checkbox {
+        flex-shrink: 0;
+        margin-top: -4px;
+      }
+
+      ::ng-deep .mdc-label {
+        line-height: 1.4;
+        padding-top: 4px;
+        padding-bottom: 4px;
+      }
     }
   `,
 })
