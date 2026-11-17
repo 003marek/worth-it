@@ -605,6 +605,20 @@ export interface ApiKeyFormModel {
       .settings-card {
         border-radius: 12px;
       }
+      mat-icon[mat-card-avatar] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        font-size: 24px;
+        line-height: 1;
+        border-radius: 10px;
+        background-color: var(--mat-sys-surface-container-high);
+        overflow: visible;
+        flex-shrink: 0;
+        margin-bottom: 0;
+      }
       .card-avatar-icon {
         color: var(--mat-sys-primary);
       }
@@ -827,6 +841,11 @@ export interface ApiKeyFormModel {
         flex-direction: column;
         justify-content: space-between;
         background-color: var(--mat-sys-surface-container);
+
+        mat-card-header {
+          align-items: center;
+          margin-bottom: 8px;
+        }
       }
       .action-header {
         display: flex;
@@ -850,6 +869,7 @@ export interface ApiKeyFormModel {
       }
       .error-icon {
         color: var(--mat-sys-error);
+        background-color: var(--mat-sys-error-container);
       }
       .clear-data-btn {
         --mdc-filled-button-container-color: var(--mat-sys-error);
