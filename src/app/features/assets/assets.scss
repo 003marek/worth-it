@@ -254,13 +254,30 @@
 
   .card-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
+    gap: 8px;
     padding: 16px 16px 8px;
+
+    ::ng-deep .mat-mdc-card-header-text {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin: 0;
+    }
+
+    .spacer {
+      display: none;
+    }
   }
 
   .more-btn {
     min-width: 48px;
     min-height: 48px;
+    flex-shrink: 0;
+    margin-top: -6px;
+    margin-right: -8px;
   }
 
   .type-badge {
@@ -304,25 +321,33 @@
     margin: 0;
     font-size: 1.0625rem;
     font-weight: 600;
+    line-height: 1.35;
     color: var(--mat-sys-on-surface);
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px 6px;
     flex-wrap: wrap;
+    overflow-wrap: anywhere;
   }
 
   .ticker-badge {
+    display: inline-flex;
+    align-items: center;
     font-size: 0.75rem;
     font-weight: 700;
-    padding: 1px 6px;
+    line-height: 1.3;
+    padding: 2px 6px;
     border-radius: 4px;
     background: var(--mat-sys-surface-container-highest);
     color: var(--mat-sys-primary);
+    flex-shrink: 0;
   }
 
   .type-name {
     font-size: 0.75rem;
     font-weight: 500;
+    line-height: 1.35;
+    margin: 0;
     color: var(--mat-sys-on-surface-variant);
     text-transform: uppercase;
     letter-spacing: 0.03em;
