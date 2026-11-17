@@ -473,6 +473,7 @@
   .card-actions {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
     padding: 12px 16px;
     border-top: 1px solid var(--mat-sys-outline-variant, rgba(0, 0, 0, 0.06));
@@ -480,10 +481,27 @@
     button,
     a {
       min-height: 48px;
+      white-space: nowrap;
+      flex-shrink: 0;
+
+      mat-icon {
+        flex-shrink: 0;
+      }
+
+      ::ng-deep .mdc-button__label {
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
     }
 
     .action-update-btn {
-      flex: 1;
+      flex: 1 1 auto;
+    }
+
+    .action-history-btn {
+      flex: 1 1 auto;
     }
   }
 }
