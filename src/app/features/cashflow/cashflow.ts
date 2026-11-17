@@ -1529,6 +1529,8 @@ export class Cashflow {
         initialMode: mode,
         initialPreset: preset,
       },
+      width: '520px',
+      maxWidth: '95vw',
     });
     const result = await firstValueFrom(dialogRef.afterClosed());
     if (result) {
@@ -1546,6 +1548,8 @@ export class Cashflow {
         categories: this.store.expenseCategories(),
         defaultCurrency: this.baseCurrency(),
       },
+      width: '520px',
+      maxWidth: '95vw',
     });
     const result = await firstValueFrom(dialogRef.afterClosed());
     if (result) {

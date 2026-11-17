@@ -182,13 +182,40 @@ export interface ExpenseRecordFormValue {
       display: flex;
       flex-direction: column;
       gap: 4px;
-      min-width: min(480px, 85vw);
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
       padding-top: 8px;
+
+      mat-form-field {
+        width: 100%;
+        min-width: 0;
+      }
     }
     .mode-selector {
       display: flex;
       justify-content: center;
+      width: 100%;
       margin-bottom: 8px;
+
+      mat-button-toggle-group {
+        width: 100%;
+        max-width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      ::ng-deep .mat-button-toggle-button {
+        height: auto;
+        min-height: 44px;
+      }
+
+      ::ng-deep .mat-button-toggle-label-content {
+        padding: 8px 10px !important;
+        line-height: 1.25 !important;
+        white-space: normal !important;
+        text-align: center;
+      }
     }
     .presets-row {
       display: flex;
@@ -221,8 +248,12 @@ export interface ExpenseRecordFormValue {
     }
     .two-col {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 4px 12px;
+
+      @media (min-width: 480px) {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      }
     }
     .toggle-group {
       display: flex;
