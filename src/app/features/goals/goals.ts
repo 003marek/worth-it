@@ -14,7 +14,6 @@ import {
 } from '@angular/cdk/drag-drop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -42,7 +41,6 @@ import { GoalFormDialog, GoalFormValue } from './goal-form-dialog';
     CdkDrag,
     CdkDragHandle,
     MatCardModule,
-    MatChipsModule,
     MatButtonModule,
     MatIconModule,
     MatProgressBarModule,

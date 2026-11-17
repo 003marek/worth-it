@@ -140,18 +140,16 @@
                         drag_indicator
                       </mat-icon>
 
-                      <mat-chip-set>
-                        @if (first) {
-                          <mat-chip class="badge active-badge" highlighted>
-                            <mat-icon matChipAvatar>star</mat-icon>
-                            Active Goal
-                          </mat-chip>
-                        } @else {
-                          <mat-chip class="badge upcoming-badge">
-                            Upcoming #{{ i + 1 }}
-                          </mat-chip>
-                        }
-                      </mat-chip-set>
+                      @if (first) {
+                        <span class="badge active-badge">
+                          <mat-icon class="badge-icon" aria-hidden="true">star</mat-icon>
+                          <span>Active Goal</span>
+                        </span>
+                      } @else {
+                        <span class="badge upcoming-badge">
+                          Upcoming #{{ i + 1 }}
+                        </span>
+                      }
 
                       <h3 class="goal-name">{{ item.goal.name }}</h3>
                     </div>
@@ -308,9 +306,7 @@
               <mat-card-content class="goal-card-content">
                 <div class="card-header-row">
                   <div class="header-left">
-                    <mat-chip-set>
-                      <mat-chip class="badge skipped-badge">Skipped</mat-chip>
-                    </mat-chip-set>
+                    <span class="badge skipped-badge">Skipped</span>
                     <h3 class="goal-name">{{ goal.name }}</h3>
                     <span class="amount-tag">
                       Target: {{ goal.targetAmount | money }}
@@ -375,19 +371,17 @@
               <mat-card-content class="goal-card-content">
                 <div class="card-header-row">
                   <div class="header-left">
-                    <mat-chip-set>
-                      @if (goal.completionChoice === 'spend') {
-                        <mat-chip class="badge spend-badge">
-                          Spent: {{ (goal.spentAmount ?? goal.targetAmount) | money }}
-                        </mat-chip>
-                      } @else if (goal.completionChoice === 'reserve') {
-                        <mat-chip class="badge reserve-badge">
-                          Reserved: {{ (goal.reservedAmount ?? goal.targetAmount) | money }}
-                        </mat-chip>
-                      } @else {
-                        <mat-chip class="badge release-badge">Released</mat-chip>
-                      }
-                    </mat-chip-set>
+                    @if (goal.completionChoice === 'spend') {
+                      <span class="badge spend-badge">
+                        Spent: {{ (goal.spentAmount ?? goal.targetAmount) | money }}
+                      </span>
+                    } @else if (goal.completionChoice === 'reserve') {
+                      <span class="badge reserve-badge">
+                        Reserved: {{ (goal.reservedAmount ?? goal.targetAmount) | money }}
+                      </span>
+                    } @else {
+                      <span class="badge release-badge">Released</span>
+                    }
 
                     <h3 class="goal-name">{{ goal.name }}</h3>
                     <span class="amount-tag">
