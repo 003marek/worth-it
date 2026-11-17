@@ -94,6 +94,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   margin-bottom: 14px;
 
   h3 {
@@ -109,6 +111,23 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: auto;
+
+    mat-icon {
+      flex-shrink: 0;
+      font-size: 1.125rem;
+      width: 1.125rem;
+      height: 1.125rem;
+    }
+
+    ::ng-deep .mdc-button__label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
   }
 }
 
