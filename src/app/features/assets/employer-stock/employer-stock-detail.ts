@@ -58,8 +58,8 @@ import { VestingTimeline } from './vesting-timeline';
   template: `
     <div class="detail-page">
       @if (asset(); as currentAsset) {
-        <!-- 1. Sticky Top Header -->
-        <header class="sticky-detail-header">
+        <!-- 1. Top Header -->
+        <header class="detail-header">
           <div class="header-left">
             <a
               mat-icon-button
@@ -449,42 +449,44 @@ import { VestingTimeline } from './vesting-timeline';
                           }
                         </div>
 
-                        <div
-                          class="tranches-mini-table"
-                          role="table"
-                          [attr.aria-label]="
-                            'Tranches for ' + (grant.name || 'Grant #' + (idx + 1))
-                          "
-                        >
-                          <div class="mini-thead" role="row">
-                            <span role="columnheader">Vest Date</span>
-                            <span role="columnheader">Shares</span>
-                            <span role="columnheader">Status</span>
-                            <span role="columnheader">Est. PLN</span>
-                          </div>
-                          @for (t of grant.tranches; track t.id) {
-                            @let isVested = isTrancheVested(t.vestDate);
-                            <div
-                              class="mini-trow mono-nums"
-                              [class.projected-row]="!isVested"
-                              role="row"
-                            >
-                              <span role="cell">{{ t.vestDate | date:'yyyy-MM-dd' }}</span>
-                              <span role="cell">
-                                <strong>{{ t.shares | number:'1.0-4' }} sh</strong>
-                              </span>
-                              <span role="cell">
-                                @if (isVested) {
-                                  <span class="vested-pill">Vested</span>
-                                } @else {
-                                  <span class="projected-pill">Projected</span>
-                                }
-                              </span>
-                              <span role="cell">
-                                {{ getTranchePlnValue(t.shares) | money:'PLN' }}
-                              </span>
+                        <div class="tranches-table-scroll">
+                          <div
+                            class="tranches-mini-table"
+                            role="table"
+                            [attr.aria-label]="
+                              'Tranches for ' + (grant.name || 'Grant #' + (idx + 1))
+                            "
+                          >
+                            <div class="mini-thead" role="row">
+                              <span role="columnheader">Vest Date</span>
+                              <span role="columnheader">Shares</span>
+                              <span role="columnheader">Status</span>
+                              <span role="columnheader">Est. PLN</span>
                             </div>
-                          }
+                            @for (t of grant.tranches; track t.id) {
+                              @let isVested = isTrancheVested(t.vestDate);
+                              <div
+                                class="mini-trow mono-nums"
+                                [class.projected-row]="!isVested"
+                                role="row"
+                              >
+                                <span role="cell">{{ t.vestDate | date:'yyyy-MM-dd' }}</span>
+                                <span role="cell">
+                                  <strong>{{ t.shares | number:'1.0-4' }} sh</strong>
+                                </span>
+                                <span role="cell">
+                                  @if (isVested) {
+                                    <span class="vested-pill">Vested</span>
+                                  } @else {
+                                    <span class="projected-pill">Projected</span>
+                                  }
+                                </span>
+                                <span role="cell">
+                                  {{ getTranchePlnValue(t.shares) | money:'PLN' }}
+                                </span>
+                              </div>
+                            }
+                          </div>
                         </div>
 
                         <div class="grant-panel-actions">
@@ -604,6 +606,8 @@ import { VestingTimeline } from './vesting-timeline';
       gap: 24px;
       padding: 1rem;
       max-width: 1200px;
+      width: 100%;
+      box-sizing: border-box;
       margin: 0 auto;
 
       @media (min-width: 768px) {
@@ -611,11 +615,8 @@ import { VestingTimeline } from './vesting-timeline';
       }
     }
 
-    /* 1. Sticky Top Header */
-    .sticky-detail-header {
-      position: sticky;
-      top: 0;
-      z-index: 10;
+    /* 1. Top Header */
+    .detail-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -631,6 +632,8 @@ import { VestingTimeline } from './vesting-timeline';
       display: flex;
       align-items: center;
       gap: 8px;
+      min-width: 0;
+      flex: 1 1 220px;
     }
 
     .back-btn,
@@ -638,12 +641,15 @@ import { VestingTimeline } from './vesting-timeline';
     .refresh-icon-btn {
       min-width: 48px;
       min-height: 48px;
+      flex-shrink: 0;
     }
 
     .title-group {
       display: flex;
       flex-direction: column;
       gap: 2px;
+      min-width: 0;
+      flex: 1 1 auto;
     }
 
     .title-line {
@@ -651,13 +657,20 @@ import { VestingTimeline } from './vesting-timeline';
       align-items: center;
       gap: 8px;
       flex-wrap: wrap;
+      min-width: 0;
     }
 
     .asset-title {
       margin: 0;
-      font-size: 1.375rem;
+      font-size: 1.25rem;
       font-weight: 700;
+      line-height: 1.25;
       color: var(--mat-sys-on-surface);
+      overflow-wrap: anywhere;
+
+      @media (min-width: 768px) {
+        font-size: 1.375rem;
+      }
     }
 
     .ticker-pill {
@@ -667,6 +680,7 @@ import { VestingTimeline } from './vesting-timeline';
       font-weight: 700;
       background: var(--mat-sys-surface-container-highest);
       color: var(--mat-sys-primary);
+      flex-shrink: 0;
     }
 
     .asset-subtitle {
@@ -678,11 +692,14 @@ import { VestingTimeline } from './vesting-timeline';
       display: flex;
       align-items: center;
       gap: 8px;
+      margin-left: auto;
+      flex-wrap: wrap;
     }
 
     .primary-action-btn,
     .section-action-btn {
-      min-height: 48px;
+      min-height: 44px;
+      white-space: nowrap;
     }
 
     /* 2. Hero Summary */
@@ -690,35 +707,38 @@ import { VestingTimeline } from './vesting-timeline';
       display: flex;
       flex-direction: column;
       gap: 12px;
+      min-width: 0;
     }
 
     .hero-metrics-grid {
       display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
       gap: 16px;
 
-      @media (min-width: 390px) and (max-width: 767px) {
-        grid-template-columns: repeat(2, 1fr);
+      @media (min-width: 768px) and (max-width: 1023px) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
 
         .total-card {
           grid-column: 1 / -1;
         }
       }
 
-      @media (min-width: 768px) {
-        grid-template-columns: repeat(3, 1fr);
+      @media (min-width: 1024px) {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
     }
 
     .hero-card {
       background: var(--mat-sys-surface-container);
+      min-width: 0;
     }
 
     .share-big-number {
-      font-size: 1.625rem;
+      font-size: clamp(1.375rem, 4vw, 1.625rem);
       font-weight: 700;
       line-height: 1.2;
       color: var(--mat-sys-on-surface);
+      overflow-wrap: anywhere;
     }
 
     .base-equivalent {
@@ -750,12 +770,15 @@ import { VestingTimeline } from './vesting-timeline';
 
     .next-vest-pill {
       display: inline-flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 6px;
       margin-top: 8px;
-      padding: 4px 10px;
-      border-radius: 999px;
+      padding: 6px 10px;
+      border-radius: 12px;
+      max-width: 100%;
+      box-sizing: border-box;
       font-size: 0.75rem;
+      line-height: 1.35;
       background: var(--mat-sys-surface-container-high);
       color: var(--mat-sys-tertiary);
 
@@ -763,6 +786,8 @@ import { VestingTimeline } from './vesting-timeline';
         font-size: 0.9375rem;
         width: 0.9375rem;
         height: 0.9375rem;
+        flex-shrink: 0;
+        margin-top: 1px;
       }
     }
 
@@ -774,6 +799,8 @@ import { VestingTimeline } from './vesting-timeline';
     .deducted-sales-pill {
       display: flex;
       justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 6px;
       margin-top: 8px;
       padding: 6px 10px;
       border-radius: 8px;
@@ -792,6 +819,7 @@ import { VestingTimeline } from './vesting-timeline';
       border-radius: 10px;
       background: var(--mat-sys-surface-container-low);
       border: 1px solid var(--mat-sys-outline-variant);
+      min-width: 0;
     }
 
     .status-badges-wrap {
@@ -799,12 +827,14 @@ import { VestingTimeline } from './vesting-timeline';
       align-items: center;
       flex-wrap: wrap;
       gap: 8px;
+      min-width: 0;
+      flex: 1 1 200px;
     }
 
     .rate-summary {
       font-size: 0.8125rem;
       color: var(--mat-sys-on-surface-variant);
-      margin-left: 4px;
+      overflow-wrap: anywhere;
     }
 
     /* 3. Baseline Active Banner */
@@ -832,6 +862,7 @@ import { VestingTimeline } from './vesting-timeline';
       gap: 10px;
       font-size: 0.875rem;
       line-height: 1.45;
+      min-width: 0;
     }
 
     .baseline-icon {
@@ -842,6 +873,7 @@ import { VestingTimeline } from './vesting-timeline';
     .baseline-banner-actions {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 8px;
       flex-shrink: 0;
     }
@@ -849,13 +881,18 @@ import { VestingTimeline } from './vesting-timeline';
     /* Responsive Detail Body */
     .detail-main-grid {
       display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
       gap: 24px;
 
       @media (min-width: 1024px) {
-        grid-template-columns: 1fr 1.15fr;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
         align-items: start;
       }
+    }
+
+    .timeline-col,
+    .grants-and-sales-col {
+      min-width: 0;
     }
 
     .grants-and-sales-col {
@@ -869,6 +906,7 @@ import { VestingTimeline } from './vesting-timeline';
       display: flex;
       flex-direction: column;
       gap: 12px;
+      min-width: 0;
     }
 
     .section-header-bar {
@@ -896,13 +934,30 @@ import { VestingTimeline } from './vesting-timeline';
       border-radius: 10px !important;
       margin-bottom: 8px;
       background: var(--mat-sys-surface-container);
+
+      ::ng-deep .mat-expansion-panel-header {
+        height: auto !important;
+        min-height: 52px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+      }
+
+      ::ng-deep .mat-content {
+        flex-wrap: wrap;
+        gap: 6px 12px;
+        min-width: 0;
+      }
     }
 
     .grant-panel-title {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 8px;
       font-weight: 600;
+      flex: 1 1 140px;
+      min-width: 0;
+      margin-right: 0;
     }
 
     .custom-chip {
@@ -917,8 +972,12 @@ import { VestingTimeline } from './vesting-timeline';
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      flex-wrap: wrap;
+      gap: 4px 12px;
       font-size: 0.8125rem;
+      flex: 1 1 auto;
+      min-width: 0;
+      margin-right: 0;
     }
 
     .progress-badge {
@@ -936,23 +995,28 @@ import { VestingTimeline } from './vesting-timeline';
     .schedule-meta-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 16px;
+      gap: 10px 16px;
       font-size: 0.8125rem;
       color: var(--mat-sys-on-surface-variant);
+    }
+
+    .tranches-table-scroll {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--mat-sys-outline-variant);
+      border-radius: 8px;
     }
 
     .tranches-mini-table {
       display: flex;
       flex-direction: column;
-      border: 1px solid var(--mat-sys-outline-variant);
-      border-radius: 8px;
-      overflow: hidden;
+      min-width: 380px;
     }
 
     .mini-thead,
     .mini-trow {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr 1fr;
+      grid-template-columns: minmax(92px, 1fr) minmax(76px, 1fr) auto minmax(88px, 1fr);
       gap: 8px;
       padding: 8px 12px;
       font-size: 0.8125rem;
@@ -989,6 +1053,7 @@ import { VestingTimeline } from './vesting-timeline';
     .grant-panel-actions {
       display: flex;
       justify-content: flex-end;
+      flex-wrap: wrap;
       gap: 8px;
       padding-top: 4px;
     }
@@ -1000,10 +1065,14 @@ import { VestingTimeline } from './vesting-timeline';
 
     .empty-sales-body {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 12px;
       color: var(--mat-sys-on-surface-variant);
       font-size: 0.875rem;
+
+      mat-icon {
+        flex-shrink: 0;
+      }
 
       p {
         margin: 0;
@@ -1024,13 +1093,15 @@ import { VestingTimeline } from './vesting-timeline';
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      flex-wrap: wrap;
+      gap: 8px 12px;
     }
 
     .sale-left {
       display: flex;
       flex-direction: column;
       gap: 2px;
+      min-width: 0;
     }
 
     .sale-date {
@@ -1050,6 +1121,7 @@ import { VestingTimeline } from './vesting-timeline';
 
     .sale-right {
       text-align: right;
+      margin-left: auto;
     }
 
     .sale-gross {
@@ -1221,6 +1293,7 @@ export class EmployerStockDetail {
     this.dialog.open(EmployerStockFormDialog, {
       data: { asset: current },
       width: '520px',
+      maxWidth: '95vw',
     });
   }
 
@@ -1230,6 +1303,7 @@ export class EmployerStockDetail {
     this.dialog.open(VestedBaselineDialog, {
       data: { asset: current },
       width: '500px',
+      maxWidth: '95vw',
     });
   }
 
@@ -1296,6 +1370,7 @@ export class EmployerStockDetail {
         sale: prefilledSale as StockSale,
       },
       width: '560px',
+      maxWidth: '95vw',
     });
 
     ref.afterClosed().subscribe(async (res: StockSaleDialogResult | undefined) => {

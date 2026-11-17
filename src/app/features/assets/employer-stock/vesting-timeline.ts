@@ -155,6 +155,8 @@ export interface TimelineTrancheItem extends VestingTranche {
       border-radius: 12px;
       background: var(--mat-sys-surface-container);
       border: 1px solid var(--mat-sys-outline-variant);
+      min-width: 0;
+      overflow: hidden;
     }
 
     .timeline-header {
