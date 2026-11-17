@@ -152,23 +152,32 @@ export const CURRENCY_OPTIONS = ['PLN', 'EUR', 'USD', 'GBP', 'CHF'] as const;
       display: flex;
       flex-direction: column;
       gap: 6px;
-      min-width: min(440px, 85vw);
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
       padding-top: 8px;
     }
 
     .row-two-col {
       display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 12px;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 6px 12px;
+
+      @media (min-width: 480px) {
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+      }
     }
 
     .col {
       display: flex;
       flex-direction: column;
+      min-width: 0;
     }
 
-    .w-full {
+    .w-full,
+    mat-form-field {
       width: 100%;
+      min-width: 0;
     }
 
     .toggle-container {

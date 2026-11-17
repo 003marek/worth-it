@@ -216,6 +216,7 @@ export class Assets {
       {
         data: {},
         width: '480px',
+        maxWidth: '95vw',
       }
     );
 
@@ -279,6 +280,7 @@ export class Assets {
       {
         data: { asset },
         width: '480px',
+        maxWidth: '95vw',
       }
     );
 
