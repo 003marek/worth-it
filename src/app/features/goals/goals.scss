@@ -243,8 +243,17 @@
 }
 
 .active-badge {
-  background-color: var(--mat-sys-primary);
-  color: var(--mat-sys-on-primary);
+  background-color: #166534;
+  color: #ffffff;
+  --mdc-chip-elevated-container-color: #166534;
+  --mdc-chip-label-text-color: #ffffff;
+  --mat-chip-elevated-container-color: #166534;
+  --mat-chip-label-text-color: #ffffff;
+  --mat-chip-with-avatar-avatar-shape-radius: 50%;
+
+  mat-icon {
+    color: #ffffff;
+  }
 }
 
 .upcoming-badge {
