@@ -647,7 +647,7 @@ import { VestingTimeline } from './vesting-timeline';
     .title-group {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 6px;
       min-width: 0;
       flex: 1 1 auto;
     }
@@ -664,7 +664,7 @@ import { VestingTimeline } from './vesting-timeline';
       margin: 0;
       font-size: 1.25rem;
       font-weight: 700;
-      line-height: 1.25;
+      line-height: 1.3;
       color: var(--mat-sys-on-surface);
       overflow-wrap: anywhere;
 
@@ -685,6 +685,7 @@ import { VestingTimeline } from './vesting-timeline';
 
     .asset-subtitle {
       font-size: 0.8125rem;
+      line-height: 1.45;
       color: var(--mat-sys-on-surface-variant);
     }
 

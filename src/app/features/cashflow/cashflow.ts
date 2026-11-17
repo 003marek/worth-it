@@ -727,13 +727,15 @@ import { SalaryUpdateDialog } from './salary-update-dialog';
     .page-title {
       margin: 0;
       font-size: 1.75rem;
+      line-height: 1.3;
       font-weight: 700;
       color: var(--mat-sys-on-surface);
     }
 
     .page-subtitle {
-      margin: 0.25rem 0 0;
+      margin: 6px 0 0;
       font-size: 0.9375rem;
+      line-height: 1.45;
       color: var(--mat-sys-on-surface-variant);
     }
 
