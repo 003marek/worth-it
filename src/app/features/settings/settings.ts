@@ -28,7 +28,6 @@ import { firstValueFrom, map } from 'rxjs';
 import packageJson from '../../../../package.json';
 import {
   AppTheme,
-  DashboardLayout,
   FinancialCushionSettings,
 } from '../../core/models/worth-it.model';
 import { MarketDataError } from '../../core/services/market-data/market-data.error';
@@ -46,7 +45,6 @@ export interface CushionFormModel {
 
 export interface PreferencesFormModel {
   baseCurrency: string;
-  defaultDashboard: DashboardLayout;
   theme: AppTheme;
 }
 
@@ -232,19 +230,6 @@ export interface ApiKeyFormModel {
                     <mat-option value="CHF">CHF (Swiss Franc)</mat-option>
                   </mat-select>
                   @for (error of prefsForm.baseCurrency().errors(); track $index) {
-                    <mat-error>{{ error.message }}</mat-error>
-                  }
-                </mat-form-field>
-              </div>
-
-              <div class="form-field-group">
-                <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>Default Dashboard</mat-label>
-                  <mat-select [formField]="prefsForm.defaultDashboard">
-                    <mat-option value="goal_first">Goal-first dashboard</mat-option>
-                    <mat-option value="financial_overview">Financial overview dashboard</mat-option>
-                  </mat-select>
-                  @for (error of prefsForm.defaultDashboard().errors(); track $index) {
                     <mat-error>{{ error.message }}</mat-error>
                   }
                 </mat-form-field>
@@ -994,7 +979,6 @@ export class Settings {
   // --- Application Preferences Form ---
   readonly prefsModel = signal<PreferencesFormModel>({
     baseCurrency: this.store.settings().baseCurrency || 'PLN',
-    defaultDashboard: this.store.settings().defaultDashboard || 'goal_first',
     theme: this.store.settings().theme || 'system',
   });
 
@@ -1002,9 +986,6 @@ export class Settings {
     this.prefsModel,
     (path) => {
       required(path.baseCurrency, { message: 'Base currency is required' });
-      required(path.defaultDashboard, {
-        message: 'Default dashboard is required',
-      });
       required(path.theme, { message: 'Theme is required' });
     },
     {
@@ -1014,7 +995,6 @@ export class Settings {
           await this.themeService.setTheme(m.theme);
           await this.store.updateSettings({
             baseCurrency: m.baseCurrency,
-            defaultDashboard: m.defaultDashboard,
             theme: m.theme,
           });
           this.snackBar.open('Preferences saved', 'OK', { duration: 3000 });
@@ -1117,7 +1097,6 @@ export class Settings {
         });
         this.prefsModel.set({
           baseCurrency: s.baseCurrency || 'PLN',
-          defaultDashboard: s.defaultDashboard || 'goal_first',
           theme: s.theme || 'system',
         });
         this.apiKeyModel.set({

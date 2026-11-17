@@ -128,12 +128,17 @@ describe('Settings', () => {
   });
 
   describe('Application Preferences', () => {
+    it('does not render Default Dashboard selector and keeps goal_first as store default', () => {
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.textContent).not.toContain('Default Dashboard');
+      expect(store.settings().defaultDashboard).toBe('goal_first');
+    });
+
     it('saves preferences and updates theme', async () => {
       const themeSpy = vi.spyOn(themeService, 'setTheme');
 
       component.prefsModel.set({
         baseCurrency: 'EUR',
-        defaultDashboard: 'financial_overview',
         theme: 'dark',
       });
 
@@ -141,7 +146,7 @@ describe('Settings', () => {
 
       expect(themeSpy).toHaveBeenCalledWith('dark');
       expect(store.settings().baseCurrency).toBe('EUR');
-      expect(store.settings().defaultDashboard).toBe('financial_overview');
+      expect(store.settings().defaultDashboard).toBe('goal_first');
       expect(mockSnackBar.open).toHaveBeenCalledWith(
         'Preferences saved',
         'OK',
