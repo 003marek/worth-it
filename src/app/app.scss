@@ -4,12 +4,21 @@
 
 .sidenav {
   width: 250px;
+  max-width: 85vw;
+  box-sizing: border-box;
+  overflow-x: hidden !important;
   border-radius: 0 !important;
   background-color: var(--mat-sys-surface);
   border-right: 1px solid var(--mat-sys-outline-variant);
 
+  ::ng-deep .mat-drawer-inner-container {
+    overflow-x: hidden !important;
+  }
+
   .sidenav-header {
     height: 64px;
+    box-sizing: border-box;
+    width: 100%;
     display: flex;
     align-items: center;
     padding: 0 16px;
@@ -29,14 +38,33 @@
     }
   }
 
+  mat-nav-list {
+    padding: 8px 0;
+    overflow-x: hidden;
+  }
+
   .nav-list-item {
-    border-radius: 0;
     margin: 4px 8px;
+    width: calc(100% - 16px) !important;
+    max-width: calc(100% - 16px);
+    box-sizing: border-box;
     border-radius: 8px;
     transition: background-color 0.15s ease;
 
+    ::ng-deep .mdc-list-item__content {
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    span[matListItemTitle] {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     mat-icon {
       color: var(--mat-sys-on-surface-variant);
+      flex-shrink: 0;
     }
 
     &.active-link {
