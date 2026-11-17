@@ -498,7 +498,8 @@
   .vest-milestone-item {
     display: flex;
     align-items: center;
-    gap: 12px;
+    flex-wrap: wrap;
+    gap: 8px 12px;
     padding: 10px 14px;
     background-color: var(--mat-sys-surface-container-low);
     border-radius: 8px;
@@ -507,6 +508,7 @@
     .milestone-bullet {
       color: var(--mat-sys-tertiary);
       font-size: 0.875rem;
+      flex-shrink: 0;
     }
 
     .milestone-date {
@@ -515,12 +517,37 @@
       color: var(--mat-sys-on-surface);
       font-variant-numeric: tabular-nums;
       min-width: 95px;
+      flex-shrink: 0;
     }
 
     .milestone-label {
-      flex: 1;
+      flex: 1 1 180px;
+      min-width: 0;
       font-size: 0.875rem;
       color: var(--mat-sys-on-surface-variant);
+    }
+
+    .milestone-sublist {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      li {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: baseline;
+      }
+
+      .subitem-amount {
+        font-size: 0.75rem;
+        opacity: 0.85;
+        font-family: 'Roboto Mono', monospace;
+        font-variant-numeric: tabular-nums;
+      }
     }
 
     .milestone-amount {
@@ -531,6 +558,8 @@
       font-variant-numeric: tabular-nums;
       font-family: 'Roboto Mono', monospace;
       text-align: right;
+      margin-left: auto;
+      flex-shrink: 0;
     }
   }
 }

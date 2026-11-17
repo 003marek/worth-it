@@ -16,6 +16,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTableModule } from '@angular/material/table';
+import { ProjectedInflow } from '../../core/asset-types/asset-type-handler';
 import { Goal, GoalFundingSummary } from '../../core/models/worth-it.model';
 import { FinancialCalculatorService } from '../../core/services/financial-calculator.service';
 import { WorthItStore } from '../../core/stores/worth-it.store';
@@ -40,6 +41,12 @@ export interface MilestoneProjection {
   simulatedAvailableWealth: number;
   baselineCompletedGoals: Goal[];
   simulatedCompletedGoals: Goal[];
+}
+
+export interface GroupedProjectedInflow {
+  date: string;
+  totalAmountInBase: number;
+  items: ProjectedInflow[];
 }
 
 @Component({
@@ -86,6 +93,25 @@ export class Projections {
   );
 
   readonly projectedInflows = computed(() => this.store.projectedInflows());
+  readonly groupedProjectedInflows = computed<GroupedProjectedInflow[]>(() => {
+    const groups = new Map<string, ProjectedInflow[]>();
+    for (const inflow of this.projectedInflows()) {
+      const list = groups.get(inflow.date) ?? [];
+      list.push(inflow);
+      groups.set(inflow.date, list);
+    }
+
+    return Array.from(groups.entries())
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+      .map(([date, items]) => ({
+        date,
+        totalAmountInBase:
+          Math.round(
+            items.reduce((sum, item) => sum + item.amountInBase, 0) * 100
+          ) / 100,
+        items,
+      }));
+  });
   readonly projectionSummary = computed(() => this.store.projectionSummary());
   readonly assumptions = computed(
     () => this.store.projectionSummary().assumptions ?? []

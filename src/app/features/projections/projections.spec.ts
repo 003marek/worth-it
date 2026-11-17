@@ -343,5 +343,59 @@ describe('Projections Component', () => {
       expect(assumptions).toBeTruthy();
       expect(assumptions?.textContent).toMatch(/Includes 2 future stock vests/i);
     });
+
+    it('groups multiple vesting events on the same date into a single milestone row', async () => {
+      const asset = await store.addAsset({
+        name: 'Alphabet Inc.',
+        type: 'employer_stock',
+        currency: 'PLN',
+        balance: 0,
+        isGoalEligible: true,
+        employerStock: {
+          tickerSymbol: 'GOOGL',
+          manualPrice: 100,
+        },
+      });
+
+      await store.addStockGrant({
+        assetId: asset.id,
+        name: '2025 Grant',
+        grantDate: '2025-01-01',
+        totalShares: 10,
+        schedule: {
+          frequency: 'annual',
+          durationMonths: 12,
+          cliffMonths: 0,
+        },
+        isScheduleCustomized: false,
+        tranches: [{ id: 'tr-a', vestDate: '2027-03-15', shares: 10 }],
+      });
+
+      await store.addStockGrant({
+        assetId: asset.id,
+        name: '2026 Grant',
+        grantDate: '2026-01-01',
+        totalShares: 15,
+        schedule: {
+          frequency: 'annual',
+          durationMonths: 12,
+          cliffMonths: 0,
+        },
+        isScheduleCustomized: false,
+        tranches: [{ id: 'tr-b', vestDate: '2027-03-15', shares: 15 }],
+      });
+
+      const fixture = TestBed.createComponent(Projections);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const el = fixture.nativeElement as HTMLElement;
+      const items = el.querySelectorAll('.vest-milestone-item');
+      expect(items.length).toBe(1);
+      expect(items[0].textContent).toContain('15 Mar 2027');
+      expect(items[0].textContent).toContain('10 sh');
+      expect(items[0].textContent).toContain('15 sh');
+      expect(items[0].textContent).toContain('+2500');
+    });
   });
 });

@@ -291,15 +291,28 @@
           </mat-card-content>
         </mat-card>
 
-        <!-- Discrete Milestone Items List -->
+        <!-- Discrete Milestone Items List (grouped by date) -->
         <div class="vests-timeline-list" role="list" aria-label="Upcoming stock vest milestones">
-          @for (inflow of projectedInflows(); track inflow.sourceId + inflow.date) {
+          @for (group of groupedProjectedInflows(); track group.date) {
             <div class="vest-milestone-item" role="listitem">
               <span class="milestone-bullet">◆</span>
-              <span class="milestone-date">{{ inflow.date | date:'dd MMM yyyy' }}</span>
-              <span class="milestone-label">{{ inflow.label }}</span>
+              <span class="milestone-date">{{ group.date | date:'dd MMM yyyy' }}</span>
+              <div class="milestone-label">
+                @if (group.items.length === 1) {
+                  <span>{{ group.items[0].label }}</span>
+                } @else {
+                  <ul class="milestone-sublist">
+                    @for (item of group.items; track item.sourceId + '-' + $index) {
+                      <li>
+                        <span>{{ item.label }}</span>
+                        <span class="subitem-amount">(+{{ item.amountInBase | money:currency() }})</span>
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
               <span class="milestone-amount">
-                +{{ inflow.amountInBase | money:currency() }}
+                +{{ group.totalAmountInBase | money:currency() }}
               </span>
             </div>
           }
