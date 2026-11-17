@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  computed,
   inject,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -12,7 +11,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
-import { MatMenuModule } from '@angular/material/menu';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { WorthItStore } from './core/stores/worth-it.store';
@@ -33,7 +31,6 @@ import { MoneyPipe } from './shared/pipes/money.pipe';
     MatIconModule,
     MatSidenavModule,
     MatListModule,
-    MatMenuModule,
     MoneyPipe,
   ],
   templateUrl: './app.html',
@@ -43,6 +40,7 @@ import { MoneyPipe } from './shared/pipes/money.pipe';
 export class App {
   private readonly breakpointObserver = inject(BreakpointObserver);
   protected readonly store = inject(WorthItStore);
+  // Instantiate root ThemeService on app boot so persisted theme class applies immediately
   protected readonly themeService = inject(ThemeService);
   private readonly pageTitleService = inject(PageTitleStrategy);
 
@@ -54,13 +52,6 @@ export class App {
     ),
     { initialValue: false }
   );
-
-  protected readonly themeIcon = computed(() => {
-    const t = this.themeService.currentTheme();
-    if (t === 'dark') return 'dark_mode';
-    if (t === 'light') return 'light_mode';
-    return 'brightness_auto';
-  });
 
   protected readonly navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },

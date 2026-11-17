@@ -29,4 +29,14 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.app-title')?.textContent).toContain('Worth It');
   });
+
+  it('should not render a theme switcher button in the header', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(
+      compiled.querySelector('.top-toolbar button[aria-label="Select color theme"]')
+    ).toBeNull();
+  });
 });
