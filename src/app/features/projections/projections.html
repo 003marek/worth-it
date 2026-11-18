@@ -66,7 +66,7 @@
           <div class="metric-box">
             <span class="m-label">Expected Monthly Surplus</span>
             <span class="m-val">
-              {{ monthlySurplus() | money:currency() }}/mo
+              {{ effectiveMonthlySurplus() | money:currency() }}/mo
             </span>
           </div>
           <div class="metric-box">
@@ -174,12 +174,20 @@
           <span class="a-label">Baseline Surplus</span>
           <span
             class="a-val"
-            [class.positive]="monthlySurplus() > 0"
-            [class.negative]="monthlySurplus() < 0"
+            [class.positive]="effectiveMonthlySurplus() > 0"
+            [class.negative]="effectiveMonthlySurplus() < 0"
           >
-            {{ monthlySurplus() | money:currency() }}/mo
+            {{ effectiveMonthlySurplus() | money:currency() }}/mo
           </span>
         </div>
+        @if (recurringContributionsMonthly() > 0) {
+          <div class="assumption-item">
+            <span class="a-label">Recurring Savings (PPK/PPO)</span>
+            <span class="a-val positive">
+              +{{ recurringContributionsMonthly() | money:currency() }}/mo
+            </span>
+          </div>
+        }
       </div>
 
       <!-- Interactive Signal Form for What-If Testing -->

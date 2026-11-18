@@ -2,12 +2,14 @@ import { AssetType } from '../models/worth-it.model';
 import { AssetTypeHandler } from './asset-type-handler';
 import { balanceHandler, createBalanceHandler } from './balance.handler';
 import { employerStockHandler } from './employer-stock/employer-stock.handler';
+import { recurringSavingsHandler } from './recurring-savings/recurring-savings.handler';
 
 export const ASSET_TYPE_HANDLERS: Readonly<Record<AssetType, AssetTypeHandler>> = {
   bank_account: createBalanceHandler('bank_account'),
   cash: createBalanceHandler('cash'),
   stocks_etf: createBalanceHandler('stocks_etf'),
   employer_stock: employerStockHandler,
+  recurring_savings: recurringSavingsHandler,
   retirement: createBalanceHandler('retirement'),
   other: createBalanceHandler('other'),
 };

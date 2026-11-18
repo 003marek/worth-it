@@ -6,6 +6,16 @@
       <p class="page-subtitle">Track your accounts, investments, and funds allocated towards goals</p>
     </div>
     <div class="header-actions">
+      @if (store.retirementAssets().length > 0 && store.savingsSourceAssets().length > 0) {
+        <button
+          mat-stroked-button
+          color="primary"
+          (click)="openRetirementTransferDialog()"
+        >
+          <mat-icon>swap_horiz</mat-icon>
+          <span>Transfer to IKE/IKZE</span>
+        </button>
+      }
       <button
         mat-stroked-button
         color="primary"
@@ -328,6 +338,153 @@
                 <span>Sell shares</span>
               </button>
             </mat-card-actions>
+          } @else if (asset.type === 'recurring_savings') {
+            <!-- Recurring Savings Card (PPK / PPO) -->
+            @let recSnapshot = getRecurringSnapshot(asset.id);
+            @let valuation = getValuation(asset.id);
+
+            <mat-card-header class="card-header">
+              <div mat-card-avatar class="type-badge type-recurring_savings">
+                <mat-icon>autorenew</mat-icon>
+              </div>
+              <mat-card-title class="asset-name">
+                <span>{{ asset.name }}</span>
+                @if (recSnapshot?.isContributing && (recSnapshot?.monthlyContribution ?? 0) > 0) {
+                  <span class="ticker-badge mono-nums">
+                    +{{ recSnapshot?.monthlyContribution | money:asset.currency }}/mo
+                  </span>
+                }
+              </mat-card-title>
+              <mat-card-subtitle class="type-name">
+                Recurring Savings (PPK/PPO) · {{ asset.currency }}
+              </mat-card-subtitle>
+
+              <span class="spacer"></span>
+              <button
+                mat-icon-button
+                [matMenuTriggerFor]="recurringMenu"
+                aria-label="More options for recurring savings"
+                class="more-btn"
+              >
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #recurringMenu="matMenu">
+                <button mat-menu-item (click)="openEditAssetDialog(asset)">
+                  <mat-icon>edit</mat-icon>
+                  <span>Edit details</span>
+                </button>
+                <button mat-menu-item (click)="openRecurringBaselineDialog(asset)">
+                  <mat-icon>verified</mat-icon>
+                  <span>Update baseline</span>
+                </button>
+                <button mat-menu-item (click)="onToggleRecurringContributing(asset)">
+                  <mat-icon>{{
+                    recSnapshot?.isContributing ? 'pause_circle' : 'play_circle'
+                  }}</mat-icon>
+                  <span>{{
+                    recSnapshot?.isContributing
+                      ? 'Pause monthly contributions'
+                      : 'Resume monthly contributions'
+                  }}</span>
+                </button>
+                <button mat-menu-item (click)="openHistoryDialog(asset)">
+                  <mat-icon>history</mat-icon>
+                  <span>Balance history</span>
+                </button>
+                <button
+                  mat-menu-item
+                  (click)="onDeleteAsset(asset)"
+                  class="danger-action"
+                >
+                  <mat-icon color="warn">delete</mat-icon>
+                  <span>Delete asset</span>
+                </button>
+              </mat-menu>
+            </mat-card-header>
+
+            <mat-card-content class="card-content">
+              <div class="balance-container">
+                <div class="primary-balance mono-nums">
+                  {{ (recSnapshot?.currentAccruedBalance ?? asset.balance) | money:asset.currency }}
+                  <span class="held-label">Accrued balance</span>
+                </div>
+                @if (asset.currency !== baseCurrency()) {
+                  <div class="exchange-equivalent mono-nums">
+                    <strong>≈ {{ getAssetBaseValue(asset) | money:baseCurrency() }}</strong>
+                    <span class="rate-note">
+                      (FX: {{ valuation?.fxRateToBase || asset.exchangeRateToBase || 1 | number:'1.2-4' }})
+                    </span>
+                  </div>
+                }
+              </div>
+
+              <!-- Baseline & Recurring Accrual Breakdown Box -->
+              <div class="unvested-pipeline-box">
+                <div class="card-meta-row mono-nums">
+                  Baseline:
+                  <strong>{{ (recSnapshot?.baselineAmount ?? asset.balance) | money:asset.currency }}</strong>
+                  @if (recSnapshot?.baselineDate) {
+                    <span>(as of {{ recSnapshot!.baselineDate | date:'mediumDate' }})</span>
+                  }
+                </div>
+                @if ((recSnapshot?.monthsElapsed ?? 0) > 0) {
+                  <div class="unvested-text mono-nums">
+                    Accrued since baseline:
+                    <strong>+{{ recSnapshot!.accruedContributions | money:asset.currency }}</strong>
+                    ({{ recSnapshot!.monthsElapsed }} mo × {{ recSnapshot!.monthlyContribution | money:asset.currency }})
+                  </div>
+                }
+                @if (recSnapshot?.isContributing && (recSnapshot?.monthlyContribution ?? 0) > 0) {
+                  <div class="next-vest-pill mono-nums">
+                    +{{ recSnapshot!.monthlyContribution | money:asset.currency }}/mo
+                    @if (recSnapshot?.nextContributionDate; as nextDate) {
+                      <span>· Next: {{ nextDate | date:'mediumDate' }}</span>
+                    }
+                  </div>
+                } @else {
+                  <div class="next-vest-pill">
+                    Monthly contributions paused
+                  </div>
+                }
+              </div>
+
+              <div class="eligibility-toggle-row">
+                <mat-slide-toggle
+                  [checked]="asset.isGoalEligible"
+                  (change)="onToggleGoalEligible(asset)"
+                  color="primary"
+                >
+                  <span class="toggle-label">Goal eligibility</span>
+                </mat-slide-toggle>
+                <span class="toggle-status" [class.active]="asset.isGoalEligible">
+                  {{ asset.isGoalEligible ? 'Counts towards goals' : 'Excluded from goals' }}
+                </span>
+              </div>
+            </mat-card-content>
+
+            <mat-divider></mat-divider>
+
+            <mat-card-actions class="card-actions">
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                (click)="openRecurringBaselineDialog(asset)"
+                class="action-update-btn"
+              >
+                <mat-icon>verified</mat-icon>
+                <span>Update baseline</span>
+              </button>
+              <button
+                mat-stroked-button
+                type="button"
+                (click)="openHistoryDialog(asset)"
+                class="action-history-btn"
+              >
+                <mat-icon>history</mat-icon>
+                <span>History</span>
+              </button>
+            </mat-card-actions>
           } @else {
             <!-- Standard Balance-Based Asset Card -->
             <mat-card-header class="card-header">
@@ -350,6 +507,16 @@
                 <button mat-menu-item (click)="openEditAssetDialog(asset)">
                   <mat-icon>edit</mat-icon>
                   <span>Edit details</span>
+                </button>
+                @if (asset.type === 'retirement' && store.savingsSourceAssets().length > 0) {
+                  <button mat-menu-item (click)="openRetirementTransferDialog(asset)">
+                    <mat-icon>swap_horiz</mat-icon>
+                    <span>Transfer from savings</span>
+                  </button>
+                }
+                <button mat-menu-item (click)="openUpdateBalanceDialog(asset)">
+                  <mat-icon>sync_alt</mat-icon>
+                  <span>Update balance</span>
                 </button>
                 <button mat-menu-item (click)="openHistoryDialog(asset)">
                   <mat-icon>history</mat-icon>
@@ -377,6 +544,41 @@
                 }
               </div>
 
+              @if (asset.type === 'retirement') {
+                @let retSnapshot = getRetirementSnapshot(asset.id);
+                @if (retSnapshot && (retSnapshot.annualLimit > 0 || retSnapshot.contributedYtd > 0)) {
+                  <div class="unvested-pipeline-box">
+                    <div class="card-meta-row mono-nums">
+                      {{ retSnapshot.year }} Contributed:
+                      <strong>{{ retSnapshot.contributedYtd | money:asset.currency }}</strong>
+                      @if (retSnapshot.annualLimit > 0) {
+                        <span>
+                          / {{ retSnapshot.annualLimit | money:asset.currency }}
+                          ({{ retSnapshot.limitUsagePercent | number:'1.0-1' }}%)
+                        </span>
+                      }
+                    </div>
+                    @if (retSnapshot.annualLimit > 0) {
+                      <mat-progress-bar
+                        mode="determinate"
+                        [value]="retSnapshot.limitUsagePercent"
+                        color="primary"
+                      ></mat-progress-bar>
+                      <div class="next-vest-pill mono-nums">
+                        @if (retSnapshot.isLimitReached) {
+                          <span>{{ retSnapshot.year }} annual limit reached 🎉</span>
+                        } @else {
+                          <span>
+                            Remaining in {{ retSnapshot.year }}:
+                            {{ retSnapshot.remainingLimit | money:asset.currency }}
+                          </span>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              }
+
               <div class="card-meta-row">
                 <span class="updated-date">Updated {{ asset.updatedAt | date:'mediumDate' }}</span>
               </div>
@@ -398,15 +600,28 @@
             <mat-divider></mat-divider>
 
             <mat-card-actions class="card-actions">
-              <button
-                mat-flat-button
-                color="primary"
-                (click)="openUpdateBalanceDialog(asset)"
-                class="action-update-btn"
-              >
-                <mat-icon>sync_alt</mat-icon>
-                <span>Update balance</span>
-              </button>
+              @if (asset.type === 'retirement' && store.savingsSourceAssets().length > 0) {
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="button"
+                  (click)="openRetirementTransferDialog(asset)"
+                  class="action-update-btn"
+                >
+                  <mat-icon>swap_horiz</mat-icon>
+                  <span>Transfer from savings</span>
+                </button>
+              } @else {
+                <button
+                  mat-flat-button
+                  color="primary"
+                  (click)="openUpdateBalanceDialog(asset)"
+                  class="action-update-btn"
+                >
+                  <mat-icon>sync_alt</mat-icon>
+                  <span>Update balance</span>
+                </button>
+              }
               <button
                 mat-stroked-button
                 (click)="openHistoryDialog(asset)"

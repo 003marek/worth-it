@@ -694,4 +694,190 @@ describe('WorthItStore', () => {
       expect(store.settings().googleDriveBackupFolder).toBe('Custom Folder');
     });
   });
+
+  describe('Recurring Savings (PPK / PPO)', () => {
+    it('auto-accrues monthly contributions from baselineDate into wealthSummary and feeds effectiveMonthlySurplus', async () => {
+      store.refreshToday('2026-04-15');
+      await store.updateCushionSettings({
+        isEnabled: false,
+        averageMonthlyExpenses: 0,
+      });
+
+      const ppk = await store.addAsset({
+        name: 'PPK — Nationale-Nederlanden',
+        type: 'recurring_savings',
+        currency: 'PLN',
+        isGoalEligible: true,
+        recurringSavings: {
+          baselineAmount: 10000,
+          baselineDate: '2026-01-15',
+          monthlyContribution: 1000,
+          isContributing: true,
+        },
+      });
+
+      // 3 months elapsed (Feb 15, Mar 15, Apr 15) -> 10,000 + 3 * 1,000 = 13,000 PLN
+      const snap = store.recurringSavingsSnapshots().get(ppk.id);
+      expect(snap?.monthsElapsed).toBe(3);
+      expect(snap?.accruedContributions).toBe(3000);
+      expect(snap?.currentAccruedBalance).toBe(13000);
+      expect(snap?.nextContributionDate).toBe('2026-05-15');
+
+      expect(store.wealthSummary().recordedAssetsTotal).toBe(13000);
+      expect(store.wealthSummary().availableForGoals).toBe(13000);
+      expect(store.recurringMonthlyContributionsInBase()).toBe(1000);
+      expect(store.effectiveMonthlySurplus()).toBe(1000);
+
+      // Even with 0 salary/expense cashflow surplus, a 19,000 PLN goal (6,000 PLN remaining)
+      // completes in 6 months via the 1,000 PLN/mo PPK contribution
+      await store.addGoal({ name: 'Apartment Down Payment', targetAmount: 19000 });
+      const goalSummary = store.goalsWithFunding()[0];
+      expect(goalSummary.currentProgress).toBe(13000);
+      expect(goalSummary.remainingAmount).toBe(6000);
+      expect(goalSummary.estimatedCompletionMonths).toBe(6);
+
+      const proj = store.projectionSummary();
+      expect(proj.recurringContributionsMonthlyInBase).toBe(1000);
+      expect(proj.effectiveMonthlySurplus).toBe(1000);
+      expect(proj.assumptions).toContain(
+        'Includes +1000 PLN/mo from recurring savings (PPK/PPO)'
+      );
+    });
+
+    it('snapshots current accrued balance at today when pausing contributions or changing monthly rate (spec §7.3.4)', async () => {
+      store.refreshToday('2026-05-15');
+
+      const ppo = await store.addAsset({
+        name: 'Employer PPO',
+        type: 'recurring_savings',
+        currency: 'PLN',
+        isGoalEligible: true,
+        recurringSavings: {
+          baselineAmount: 20000,
+          baselineDate: '2026-01-15',
+          monthlyContribution: 500,
+          isContributing: true,
+        },
+      });
+
+      // 4 months elapsed -> 22,000 PLN accrued today
+      expect(
+        store.recurringSavingsSnapshots().get(ppo.id)?.currentAccruedBalance
+      ).toBe(22000);
+
+      // Pause contributions: must lock in 22,000 PLN at 2026-05-15 so past 4 months are preserved
+      await store.toggleRecurringSavingsContributing(ppo.id, false);
+
+      const pausedSnap = store.recurringSavingsSnapshots().get(ppo.id);
+      expect(pausedSnap?.isContributing).toBe(false);
+      expect(pausedSnap?.baselineAmount).toBe(22000);
+      expect(pausedSnap?.baselineDate).toBe('2026-05-15');
+      expect(pausedSnap?.currentAccruedBalance).toBe(22000);
+      expect(store.recurringMonthlyContributionsInBase()).toBe(0);
+
+      // Re-anchor baseline manually to real portal value (e.g. 23,450 PLN after fund gains)
+      await store.reanchorRecurringSavingsBaseline(
+        ppo.id,
+        23450,
+        '2026-05-15',
+        'Q2 fund valuation sync'
+      );
+
+      const reanchored = store.recurringSavingsSnapshots().get(ppo.id);
+      expect(reanchored?.baselineAmount).toBe(23450);
+      expect(reanchored?.currentAccruedBalance).toBe(23450);
+      expect(store.wealthSummary().totalWealth).toBe(23450);
+      expect(
+        store
+          .assetHistory()
+          .some(
+            (h) =>
+              h.assetId === ppo.id &&
+              h.balance === 23450 &&
+              h.note === 'Q2 fund valuation sync'
+          )
+      ).toBe(true);
+    });
+  });
+
+  describe('Savings-to-Retirement Transfers (IKE / IKZE)', () => {
+    it('deducts from source cash/bank account, adds to IKE/IKZE balance, logs history on both, and updates YTD limit progress', async () => {
+      store.refreshToday('2026-04-15');
+      await store.updateCushionSettings({
+        isEnabled: false,
+        averageMonthlyExpenses: 0,
+      });
+
+      const checking = await store.addAsset({
+        name: 'Main Checking',
+        type: 'bank_account',
+        currency: 'PLN',
+        balance: 30000,
+        isGoalEligible: true,
+      });
+
+      const ike = await store.addAsset({
+        name: 'XTB IKE',
+        type: 'retirement',
+        currency: 'PLN',
+        balance: 20000,
+        isGoalEligible: false,
+        retirement: {
+          accountKind: 'ike',
+          annualLimit: 28260,
+          ytdContributionsBaseline: 10000,
+          ytdBaselineYear: 2026,
+        },
+      });
+
+      expect(store.wealthSummary().totalWealth).toBe(50000);
+      expect(store.wealthSummary().goalEligibleWealth).toBe(30000);
+      expect(store.wealthSummary().excludedWealth).toBe(20000);
+
+      const transfer = await store.transferToRetirement({
+        fromAssetId: checking.id,
+        toAssetId: ike.id,
+        amount: 8260,
+        date: '2026-04-15',
+        note: 'April IKE top-up',
+      });
+
+      expect(transfer.amount).toBe(8260);
+      expect(store.retirementTransfers()).toHaveLength(1);
+
+      const updatedChecking = store.assets().find((a) => a.id === checking.id);
+      const updatedIke = store.assets().find((a) => a.id === ike.id);
+      expect(updatedChecking?.balance).toBe(21740);
+      expect(updatedIke?.balance).toBe(28260);
+
+      // Total wealth is invariant (50,000 PLN), while Goal-Eligible shifted to Excluded
+      expect(store.wealthSummary().totalWealth).toBe(50000);
+      expect(store.wealthSummary().goalEligibleWealth).toBe(21740);
+      expect(store.wealthSummary().excludedWealth).toBe(28260);
+
+      // YTD limit progress updated: 10,000 baseline + 8,260 transfer = 18,260 / 28,260 (10,000 remaining)
+      const ikeSnap = store.retirementSnapshots().get(ike.id);
+      expect(ikeSnap?.contributedYtd).toBe(18260);
+      expect(ikeSnap?.remainingLimit).toBe(10000);
+
+      // Both accounts have balance history entries for the transfer
+      const history = store.assetHistory();
+      expect(
+        history.some(
+          (h) =>
+            h.assetId === checking.id &&
+            h.balance === 21740 &&
+            h.note?.includes('Transfer to XTB IKE')
+        )
+      ).toBe(true);
+      expect(
+        history.some(
+          (h) =>
+            h.assetId === ike.id &&
+            h.balance === 28260 &&
+            h.note?.includes('Transfer from Main Checking')
+        )
+      ).toBe(true);
+    });
+  });
 });

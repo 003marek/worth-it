@@ -73,6 +73,14 @@ export class Dashboard {
     () => this.store.monthlySurplusSummary().monthlySurplus
   );
 
+  readonly recurringContributionsMonthly = computed(() =>
+    this.store.recurringMonthlyContributionsInBase()
+  );
+
+  readonly effectiveMonthlySurplus = computed(() =>
+    this.store.effectiveMonthlySurplus()
+  );
+
   readonly completedGoalsCount = computed(
     () => this.store.completedGoals().length
   );
@@ -106,13 +114,15 @@ export class Dashboard {
     const total = this.wealthSummary().recordedAssetsTotal;
     const valuations = this.store.assetValuations();
     const snapshots = this.store.employerStockSnapshots();
+    const recurringSnapshots = this.store.recurringSavingsSnapshots();
 
     return assets.map((a) => {
       const valuation = valuations.get(a.id);
       const snapshot = snapshots.get(a.id);
+      const recSnapshot = recurringSnapshots.get(a.id);
 
       let baseValue = 0;
-      if (a.type === 'employer_stock' && valuation) {
+      if (valuation) {
         baseValue = valuation.valueInBase;
       } else {
         const rate =
@@ -144,14 +154,22 @@ export class Dashboard {
         }
       }
 
+      const displayBalance =
+        a.type === 'recurring_savings' && recSnapshot
+          ? recSnapshot.currentAccruedBalance
+          : a.balance;
+
       return {
         ...a,
+        balance: displayBalance,
         baseValue,
         percentOfTotal,
         heldShares,
         unvestedShares,
         unvestedValueInBase,
         nextVest,
+        monthlyContribution: recSnapshot?.monthlyContribution,
+        isContributing: recSnapshot?.isContributing,
       };
     });
   });
@@ -187,6 +205,8 @@ export class Dashboard {
         return 'Stocks / ETF';
       case 'employer_stock':
         return 'Employer Stock';
+      case 'recurring_savings':
+        return 'Recurring Savings (PPK/PPO)';
       case 'retirement':
         return 'Retirement (IKE/IKZE)';
       case 'other':

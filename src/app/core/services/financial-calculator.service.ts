@@ -584,7 +584,8 @@ export class FinancialCalculatorService {
     availableGoalWealth: number,
     cushionDeficit: number,
     referenceDate?: Date,
-    inflows: readonly ProjectedInflow[] = []
+    inflows: readonly ProjectedInflow[] = [],
+    recurringContributionsMonthlyInBase: number = 0
   ): ProjectionSummary {
     const surplusSummary = this.calculateMonthlySurplusSummary(
       incomeSources,
@@ -592,6 +593,12 @@ export class FinancialCalculatorService {
       cushion
     );
     const { monthlyIncome, monthlyExpenses, monthlySurplus } = surplusSummary;
+    const safeRecurringMonthly = Math.max(
+      0,
+      Math.round((Number(recurringContributionsMonthlyInBase) || 0) * 100) / 100
+    );
+    const effectiveMonthlySurplus =
+      Math.round((monthlySurplus + safeRecurringMonthly) * 100) / 100;
 
     let cushionMonthsToFund: number | null = null;
     let cushionEstimatedCompletionDate: string | null = null;
@@ -602,7 +609,7 @@ export class FinancialCalculatorService {
     } else {
       const cushionProjected = this.projectFundingDate(
         cushionDeficit,
-        monthlySurplus,
+        effectiveMonthlySurplus,
         inflows,
         referenceDate
       );
@@ -616,7 +623,7 @@ export class FinancialCalculatorService {
       goals,
       availableGoalWealth,
       cushionDeficit,
-      monthlySurplus,
+      effectiveMonthlySurplus,
       referenceDate,
       inflows
     );
@@ -630,6 +637,11 @@ export class FinancialCalculatorService {
       ) / 100;
 
     const assumptions: string[] = [];
+    if (safeRecurringMonthly > 0) {
+      assumptions.push(
+        `Includes +${safeRecurringMonthly} PLN/mo from recurring savings (PPK/PPO)`
+      );
+    }
     if (inflows && inflows.length > 0) {
       assumptions.push(
         `Includes ${inflows.length} future stock ${inflows.length === 1 ? 'vest' : 'vests'} valued at today's price and NBP rate`
@@ -640,6 +652,8 @@ export class FinancialCalculatorService {
       monthlyIncome,
       monthlyExpenses,
       monthlySurplus,
+      recurringContributionsMonthlyInBase: safeRecurringMonthly,
+      effectiveMonthlySurplus,
       cushionMonthsToFund,
       cushionEstimatedCompletionDate,
       goalsTimeline,

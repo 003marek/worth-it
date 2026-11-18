@@ -1,5 +1,7 @@
 import { EmployerStockDetails, StockGrant } from './employer-stock.model';
 import { FxRate, MarketQuote } from './market-data.model';
+import { RecurringSavingsDetails } from './recurring-savings.model';
+import { RetirementDetails, RetirementTransfer } from './retirement.model';
 
 export type GoalCompletionChoice = 'spend' | 'reserve' | 'release';
 
@@ -8,6 +10,7 @@ export type AssetType =
   | 'cash'
   | 'stocks_etf'
   | 'employer_stock'
+  | 'recurring_savings'
   | 'retirement'
   | 'other';
 
@@ -47,6 +50,10 @@ export interface Asset {
   exchangeRateToBase?: number;
   /** Type-specific configuration for employer_stock assets (arch §3.3). */
   employerStock?: EmployerStockDetails;
+  /** Type-specific configuration for recurring_savings assets (spec §7.2, §15.3). */
+  recurringSavings?: RecurringSavingsDetails;
+  /** Type-specific configuration for retirement (IKE/IKZE) assets (spec §8.1, §15.4). */
+  retirement?: RetirementDetails;
   isGoalEligible: boolean;
   updatedAt: string;
 }
@@ -193,6 +200,10 @@ export interface ProjectionSummary {
   monthlyIncome: number;
   monthlyExpenses: number;
   monthlySurplus: number;
+  /** Sum of active, goal-eligible recurring_savings monthly contributions in base currency (spec §10.2). */
+  recurringContributionsMonthlyInBase?: number;
+  /** monthlySurplus + recurringContributionsMonthlyInBase. */
+  effectiveMonthlySurplus?: number;
   cushionMonthsToFund: number | null;
   cushionEstimatedCompletionDate: string | null;
   goalsTimeline: GoalFundingSummary[];
@@ -214,6 +225,7 @@ export interface WorthItBackupData {
     expenseRecords: ExpenseRecord[];
     stockSales: StockSale[];
     stockGrants: StockGrant[];
+    retirementTransfers?: RetirementTransfer[];
     marketQuotes: MarketQuote[];
     fxRates: FxRate[];
     settings: ApplicationSettings[];

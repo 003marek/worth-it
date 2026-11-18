@@ -8,12 +8,15 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { AssetValuation } from '../../core/asset-types/asset-type-handler';
 import { EmployerStockSnapshot, StockGrant } from '../../core/models/employer-stock.model';
 import { MarketDataSource } from '../../core/models/market-data.model';
+import { RecurringSavingsSnapshot } from '../../core/models/recurring-savings.model';
+import { RetirementSnapshot } from '../../core/models/retirement.model';
 import { Asset, AssetType, StockSale } from '../../core/models/worth-it.model';
 import { FinancialCalculatorService } from '../../core/services/financial-calculator.service';
 import { WorthItStore } from '../../core/stores/worth-it.store';
@@ -29,6 +32,8 @@ import { AssetDialogResult, AssetFormDialog } from './asset-form-dialog';
 import { AssetHistoryDialog } from './asset-history-dialog';
 import { EmployerStockFormDialog } from './employer-stock/employer-stock-form-dialog';
 import { VestedBaselineDialog } from './employer-stock/vested-baseline-dialog';
+import { RecurringSavingsBaselineDialog } from './recurring-savings/recurring-savings-baseline-dialog';
+import { RetirementTransferDialog } from './retirement/retirement-transfer-dialog';
 import { UpdateBalanceDialog } from './update-balance-dialog';
 
 export interface AssetTypeBreakdownItem {
@@ -45,7 +50,8 @@ export const ASSET_TYPE_INFO: Record<AssetType, { label: string; icon: string }>
   cash: { label: 'Cash', icon: 'payments' },
   stocks_etf: { label: 'Stocks / ETF', icon: 'trending_up' },
   employer_stock: { label: 'Employer stock', icon: 'trending_up' },
-  retirement: { label: 'Retirement', icon: 'savings' },
+  recurring_savings: { label: 'Recurring savings (PPK/PPO)', icon: 'autorenew' },
+  retirement: { label: 'Retirement (IKE/IKZE)', icon: 'savings' },
   other: { label: 'Other', icon: 'category' },
 };
 
@@ -67,6 +73,7 @@ export type GoalFilterOption = 'all' | 'goal_eligible' | 'excluded';
     MatDividerModule,
     MatIconModule,
     MatMenuModule,
+    MatProgressBarModule,
     MatSlideToggleModule,
     MatTooltipModule,
     EmptyState,
@@ -110,6 +117,7 @@ export class Assets {
       'cash',
       'stocks_etf',
       'employer_stock',
+      'recurring_savings',
       'retirement',
       'other',
     ];
@@ -170,6 +178,14 @@ export class Assets {
 
   protected getSnapshot(assetId: string): EmployerStockSnapshot | undefined {
     return this.store.employerStockSnapshots().get(assetId);
+  }
+
+  protected getRecurringSnapshot(assetId: string): RecurringSavingsSnapshot | undefined {
+    return this.store.recurringSavingsSnapshots().get(assetId);
+  }
+
+  protected getRetirementSnapshot(assetId: string): RetirementSnapshot | undefined {
+    return this.store.retirementSnapshots().get(assetId);
   }
 
   protected getGrants(assetId: string): StockGrant[] {
@@ -238,6 +254,8 @@ export class Assets {
           balance: res.balance,
           currency: res.currency,
           exchangeRateToBase: res.exchangeRateToBase,
+          recurringSavings: res.recurringSavings,
+          retirement: res.retirement,
           isGoalEligible: res.isGoalEligible,
         },
         res.historyNote
@@ -294,10 +312,19 @@ export class Assets {
           balance: res.balance,
           currency: res.currency,
           exchangeRateToBase: res.exchangeRateToBase,
+          recurringSavings: res.recurringSavings,
+          retirement: res.retirement,
           isGoalEligible: res.isGoalEligible,
         },
         res.historyNote
       );
+    });
+  }
+
+  protected openRetirementTransferDialog(toAsset?: Asset): void {
+    this.dialog.open(RetirementTransferDialog, {
+      data: { toAsset },
+      width: '520px',
     });
   }
 
@@ -306,6 +333,17 @@ export class Assets {
       data: { asset },
       width: '500px',
     });
+  }
+
+  protected openRecurringBaselineDialog(asset: Asset): void {
+    this.dialog.open(RecurringSavingsBaselineDialog, {
+      data: { asset },
+      width: '500px',
+    });
+  }
+
+  protected async onToggleRecurringContributing(asset: Asset): Promise<void> {
+    await this.store.toggleRecurringSavingsContributing(asset.id);
   }
 
   protected openSellSharesDialog(asset: Asset): void {

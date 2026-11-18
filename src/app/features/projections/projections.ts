@@ -92,6 +92,14 @@ export class Projections {
     () => this.store.monthlySurplusSummary().monthlySurplus
   );
 
+  readonly recurringContributionsMonthly = computed(() =>
+    this.store.recurringMonthlyContributionsInBase()
+  );
+
+  readonly effectiveMonthlySurplus = computed(() =>
+    this.store.effectiveMonthlySurplus()
+  );
+
   readonly projectedInflows = computed(() => this.store.projectedInflows());
   readonly groupedProjectedInflows = computed<GroupedProjectedInflow[]>(() => {
     const groups = new Map<string, ProjectedInflow[]>();
@@ -153,7 +161,7 @@ export class Projections {
 
   readonly simulatedMonthlySurplus = computed(() => {
     const extra = Number(this.simModel().extraMonthlySavings) || 0;
-    return this.monthlySurplus() + extra;
+    return this.effectiveMonthlySurplus() + extra;
   });
 
   readonly windfall = computed(() => {
@@ -260,7 +268,7 @@ export class Projections {
     ];
 
     const baselineAvailable = this.wealthSummary().availableForGoals;
-    const baselineSurplus = this.monthlySurplus();
+    const baselineSurplus = this.effectiveMonthlySurplus();
     const baselineCushionDeficit = this.wealthSummary().cushionDeficit;
     const baselineGoals = this.store.goalsWithFunding();
 

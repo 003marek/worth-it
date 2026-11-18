@@ -18,6 +18,8 @@ import { EmployerStockFormDialog } from './employer-stock/employer-stock-form-di
 import { GrantEditorDialog } from './employer-stock/grant-editor-dialog';
 import { VestedBaselineDialog } from './employer-stock/vested-baseline-dialog';
 import { VestingTimeline } from './employer-stock/vesting-timeline';
+import { RecurringSavingsBaselineDialog } from './recurring-savings/recurring-savings-baseline-dialog';
+import { RetirementTransferDialog } from './retirement/retirement-transfer-dialog';
 import { UpdateBalanceDialog } from './update-balance-dialog';
 
 describe('Assets Feature', () => {
@@ -855,6 +857,170 @@ describe('Assets Feature', () => {
         EmployerStockFormDialog,
         expect.objectContaining({ width: '520px' })
       );
+    });
+  });
+
+  describe('12. Recurring Savings (PPK / PPO) Card & Baseline Dialog (Spec §7)', () => {
+    it('renders recurring_savings card with accrued balance, baseline breakdown, and monthly rate', async () => {
+      store.refreshToday('2026-04-15');
+      await store.addAsset({
+        name: 'PPK — Nationale-Nederlanden',
+        type: 'recurring_savings',
+        currency: 'PLN',
+        isGoalEligible: true,
+        recurringSavings: {
+          baselineAmount: 14000,
+          baselineDate: '2026-01-15',
+          monthlyContribution: 850,
+          isContributing: true,
+        },
+      });
+
+      const fixture = TestBed.createComponent(Assets);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.textContent).toContain('PPK — Nationale-Nederlanden');
+      expect(el.textContent).toContain('Accrued balance');
+      expect(el.textContent).toContain('Accrued since baseline:');
+      expect(el.textContent).toContain('Update baseline');
+    });
+
+    it('re-anchors baseline via RecurringSavingsBaselineDialog and updates store', async () => {
+      store.refreshToday('2026-04-15');
+      const ppk = await store.addAsset({
+        name: 'PPK — Nationale-Nederlanden',
+        type: 'recurring_savings',
+        currency: 'PLN',
+        isGoalEligible: true,
+        recurringSavings: {
+          baselineAmount: 14000,
+          baselineDate: '2026-01-15',
+          monthlyContribution: 850,
+          isContributing: true,
+        },
+      });
+
+      const mockDialogRef = { close: vi.fn() };
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        imports: [RecurringSavingsBaselineDialog],
+        providers: [
+          StorageService,
+          FinancialCalculatorService,
+          WorthItStore,
+          { provide: MatDialogRef, useValue: mockDialogRef },
+          { provide: MAT_DIALOG_DATA, useValue: { asset: ppk } },
+        ],
+      });
+
+      const dialogStore = TestBed.inject(WorthItStore);
+      await dialogStore.loadAll();
+      dialogStore.refreshToday('2026-04-15');
+
+      const fixture = TestBed.createComponent(RecurringSavingsBaselineDialog);
+      fixture.detectChanges();
+      const instance = fixture.componentInstance;
+
+      instance['model'].set({
+        baselineAmount: 17200,
+        baselineDate: '2026-04-15',
+        note: 'Portal balance sync',
+      });
+      fixture.detectChanges();
+
+      expect(instance['previewBalanceToday']()).toBe(17200);
+
+      await submit(instance['baselineForm']);
+
+      const updated = dialogStore.assets().find((a) => a.id === ppk.id);
+      expect(updated?.recurringSavings?.baselineAmount).toBe(17200);
+      expect(updated?.recurringSavings?.baselineDate).toBe('2026-04-15');
+      expect(mockDialogRef.close).toHaveBeenCalledWith({
+        baselineAmount: 17200,
+        baselineDate: '2026-04-15',
+        note: 'Portal balance sync',
+      });
+    });
+  });
+
+  describe('13. Retirement (IKE / IKZE) Card & RetirementTransferDialog (Spec §8)', () => {
+    it('renders IKE annual limit progress on retirement card and transfers funds via RetirementTransferDialog', async () => {
+      store.refreshToday('2026-04-15');
+      const bank = await store.addAsset({
+        name: 'PKO Checking',
+        type: 'bank_account',
+        currency: 'PLN',
+        balance: 25000,
+        isGoalEligible: true,
+      });
+      const ike = await store.addAsset({
+        name: 'XTB IKE',
+        type: 'retirement',
+        currency: 'PLN',
+        balance: 32000,
+        isGoalEligible: false,
+        retirement: {
+          accountKind: 'ike',
+          annualLimit: 28260,
+          ytdContributionsBaseline: 12000,
+          ytdBaselineYear: 2026,
+        },
+      });
+
+      const listFixture = TestBed.createComponent(Assets);
+      listFixture.detectChanges();
+      await listFixture.whenStable();
+
+      const listEl = listFixture.nativeElement as HTMLElement;
+      expect(listEl.textContent).toContain('2026 Contributed:');
+      expect(listEl.textContent).toContain('Remaining in 2026:');
+      expect(listEl.textContent).toContain('Transfer from savings');
+
+      const mockDialogRef = { close: vi.fn() };
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        imports: [RetirementTransferDialog],
+        providers: [
+          StorageService,
+          FinancialCalculatorService,
+          WorthItStore,
+          { provide: MatDialogRef, useValue: mockDialogRef },
+          { provide: MAT_DIALOG_DATA, useValue: { toAsset: ike } },
+        ],
+      });
+
+      const dialogStore = TestBed.inject(WorthItStore);
+      await dialogStore.loadAll();
+      dialogStore.refreshToday('2026-04-15');
+
+      const dialogFixture = TestBed.createComponent(RetirementTransferDialog);
+      dialogFixture.detectChanges();
+      const instance = dialogFixture.componentInstance;
+
+      instance['model'].set({
+        fromAssetId: bank.id,
+        toAssetId: ike.id,
+        amount: 5000,
+        date: '2026-04-15',
+        note: 'Spring IKE contribution',
+      });
+      dialogFixture.detectChanges();
+
+      expect(instance['previewFromBalanceAfter']()).toBe(20000);
+      expect(instance['previewToBalanceAfter']()).toBe(37000);
+      expect(instance['previewContributedYtd']()).toBe(17000);
+
+      await submit(instance['transferForm']);
+
+      expect(
+        dialogStore.assets().find((a) => a.id === bank.id)?.balance
+      ).toBe(20000);
+      expect(
+        dialogStore.assets().find((a) => a.id === ike.id)?.balance
+      ).toBe(37000);
+      expect(mockDialogRef.close).toHaveBeenCalled();
     });
   });
 });

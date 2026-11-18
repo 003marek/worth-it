@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import Dexie, { Table } from 'dexie';
 import { StockGrant } from '../models/employer-stock.model';
 import { FxRate, MarketQuote } from '../models/market-data.model';
+import { RetirementTransfer } from '../models/retirement.model';
 import {
   ApplicationSettings,
   Asset,
@@ -41,6 +42,7 @@ export class StorageService extends Dexie {
   expenseRecords!: Table<ExpenseRecord, string>;
   stockSales!: Table<StockSale, string>;
   stockGrants!: Table<StockGrant, string>;
+  retirementTransfers!: Table<RetirementTransfer, string>;
   marketQuotes!: Table<MarketQuote, string>;
   fxRates!: Table<FxRate, string>;
   settings!: Table<ApplicationSettings, string>;
@@ -70,6 +72,22 @@ export class StorageService extends Dexie {
       expenseRecords: 'id, categoryId, date, isActual',
       stockSales: 'id, companyOrTicker, saleDate',
       stockGrants: 'id, assetId',
+      marketQuotes: 'symbol',
+      fxRates: 'pair',
+      settings: 'id',
+    });
+
+    this.version(3).stores({
+      goals: 'id, order, isCompleted, createdAt',
+      assets: 'id, type, currency, isGoalEligible, updatedAt',
+      assetHistory: 'id, assetId, date',
+      incomeSources: 'id, type, frequency, isEnabled',
+      incomeRecords: 'id, incomeSourceId, receivedDate, isActual',
+      expenseCategories: 'id, order, isEnabled',
+      expenseRecords: 'id, categoryId, date, isActual',
+      stockSales: 'id, companyOrTicker, saleDate',
+      stockGrants: 'id, assetId',
+      retirementTransfers: 'id, fromAssetId, toAssetId, date',
       marketQuotes: 'symbol',
       fxRates: 'pair',
       settings: 'id',
@@ -149,11 +167,19 @@ export class StorageService extends Dexie {
   async deleteAsset(id: string): Promise<void> {
     await this.transaction(
       'rw',
-      [this.assets, this.assetHistory, this.stockGrants, this.stockSales],
+      [
+        this.assets,
+        this.assetHistory,
+        this.stockGrants,
+        this.stockSales,
+        this.retirementTransfers,
+      ],
       async () => {
         await this.assets.delete(id);
         await this.assetHistory.where('assetId').equals(id).delete();
         await this.stockGrants.where('assetId').equals(id).delete();
+        await this.retirementTransfers.where('toAssetId').equals(id).delete();
+        await this.retirementTransfers.where('fromAssetId').equals(id).delete();
         await this.stockSales
           .filter((sale) => sale.sourceAssetId === id)
           .modify({ sourceAssetId: undefined });
@@ -346,6 +372,30 @@ export class StorageService extends Dexie {
     });
   }
 
+  // --- Retirement Transfers (spec §8.2, §15.4) ---
+  async getAllRetirementTransfers(): Promise<RetirementTransfer[]> {
+    const list = await this.retirementTransfers.toArray();
+    return list.sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  async getRetirementTransfersForAsset(
+    toAssetId: string
+  ): Promise<RetirementTransfer[]> {
+    const list = await this.retirementTransfers
+      .where('toAssetId')
+      .equals(toAssetId)
+      .toArray();
+    return list.sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  async saveRetirementTransfer(transfer: RetirementTransfer): Promise<void> {
+    await this.retirementTransfers.put(transfer);
+  }
+
+  async deleteRetirementTransfer(id: string): Promise<void> {
+    await this.retirementTransfers.delete(id);
+  }
+
   // --- Clear / Reset ---
   async clearAllData(): Promise<void> {
     await this.transaction(
@@ -360,6 +410,7 @@ export class StorageService extends Dexie {
         this.expenseRecords,
         this.stockSales,
         this.stockGrants,
+        this.retirementTransfers,
         this.marketQuotes,
         this.fxRates,
         this.settings,
@@ -375,6 +426,7 @@ export class StorageService extends Dexie {
           this.expenseRecords.clear(),
           this.stockSales.clear(),
           this.stockGrants.clear(),
+          this.retirementTransfers.clear(),
           this.marketQuotes.clear(),
           this.fxRates.clear(),
           this.settings.clear(),
@@ -494,7 +546,28 @@ export class StorageService extends Dexie {
         type: 'retirement',
         currency: 'PLN',
         balance: 32000,
+        retirement: {
+          accountKind: 'ike',
+          annualLimit: 28260,
+          ytdContributionsBaseline: 12000,
+          ytdBaselineYear: 2026,
+        },
         isGoalEligible: false,
+        updatedAt: '2026-03-31T12:00:00.000Z',
+      },
+      {
+        id: 'asset-7',
+        name: 'PPK — Nationale-Nederlanden',
+        type: 'recurring_savings',
+        currency: 'PLN',
+        balance: 14000,
+        recurringSavings: {
+          baselineAmount: 14000,
+          baselineDate: '2026-01-15',
+          monthlyContribution: 850,
+          isContributing: true,
+        },
+        isGoalEligible: true,
         updatedAt: '2026-03-31T12:00:00.000Z',
       },
     ];
@@ -870,6 +943,7 @@ export class StorageService extends Dexie {
       expenseRecords,
       stockSales,
       stockGrants,
+      retirementTransfers,
       marketQuotes,
       fxRates,
       settings,
@@ -883,6 +957,7 @@ export class StorageService extends Dexie {
       this.expenseRecords.toArray(),
       this.stockSales.toArray(),
       this.stockGrants.toArray(),
+      this.retirementTransfers.toArray(),
       this.marketQuotes.toArray(),
       this.fxRates.toArray(),
       this.settings.toArray(),
@@ -902,6 +977,7 @@ export class StorageService extends Dexie {
         expenseRecords,
         stockSales,
         stockGrants,
+        retirementTransfers,
         marketQuotes,
         fxRates,
         settings: settings.length > 0 ? settings : [{ ...DEFAULT_SETTINGS }],
@@ -944,6 +1020,8 @@ export class StorageService extends Dexie {
     const expenseRecords = (payload['expenseRecords'] ?? []) as ExpenseRecord[];
     const stockSales = (payload['stockSales'] ?? []) as StockSale[];
     const stockGrants = (payload['stockGrants'] ?? []) as StockGrant[];
+    const retirementTransfers = (payload['retirementTransfers'] ??
+      []) as RetirementTransfer[];
     const marketQuotes = (payload['marketQuotes'] ?? []) as MarketQuote[];
     const fxRates = (payload['fxRates'] ?? []) as FxRate[];
 
@@ -985,6 +1063,7 @@ export class StorageService extends Dexie {
         this.expenseRecords,
         this.stockSales,
         this.stockGrants,
+        this.retirementTransfers,
         this.marketQuotes,
         this.fxRates,
         this.settings,
@@ -1000,6 +1079,7 @@ export class StorageService extends Dexie {
           this.expenseRecords.clear(),
           this.stockSales.clear(),
           this.stockGrants.clear(),
+          this.retirementTransfers.clear(),
           this.marketQuotes.clear(),
           this.fxRates.clear(),
           this.settings.clear(),
@@ -1016,6 +1096,9 @@ export class StorageService extends Dexie {
         if (expenseRecords.length > 0) await this.expenseRecords.bulkAdd(expenseRecords);
         if (stockSales.length > 0) await this.stockSales.bulkAdd(stockSales);
         if (stockGrants.length > 0) await this.stockGrants.bulkAdd(stockGrants);
+        if (retirementTransfers.length > 0) {
+          await this.retirementTransfers.bulkAdd(retirementTransfers);
+        }
         if (marketQuotes.length > 0) await this.marketQuotes.bulkAdd(marketQuotes);
         if (fxRates.length > 0) await this.fxRates.bulkAdd(fxRates);
 
@@ -1115,6 +1198,7 @@ export class StorageService extends Dexie {
       'cash',
       'stocks_etf',
       'employer_stock',
+      'recurring_savings',
       'retirement',
       'other',
     ];

@@ -20,17 +20,32 @@ import {
   ProjectedInflow,
 } from '../asset-types/asset-type-handler';
 import {
+  calculateRecurringMonthlyContributionsInBase,
   collectProjectedInflows,
   toValuedAsset,
   valueAssets,
 } from '../asset-types/asset-valuation';
 import { employerStockSnapshot } from '../asset-types/employer-stock/vesting';
 import {
+  accruedBalanceAt,
+  recurringSavingsSnapshot,
+  resolveRecurringSavingsDetails,
+} from '../asset-types/recurring-savings/recurring-savings';
+import { retirementSnapshot } from '../asset-types/retirement/retirement';
+import {
   EmployerStockDetails,
   EmployerStockSnapshot,
   StockGrant,
 } from '../models/employer-stock.model';
 import { FxRate, MarketQuote } from '../models/market-data.model';
+import {
+  RecurringSavingsDetails,
+  RecurringSavingsSnapshot,
+} from '../models/recurring-savings.model';
+import {
+  RetirementSnapshot,
+  RetirementTransfer,
+} from '../models/retirement.model';
 import {
   ApplicationSettings,
   Asset,
@@ -86,6 +101,7 @@ export interface WorthItState {
   expenseRecords: ExpenseRecord[];
   stockSales: StockSale[];
   stockGrants: StockGrant[];
+  retirementTransfers: RetirementTransfer[];
   marketQuotes: MarketQuote[];
   fxRates: FxRate[];
   today: string;
@@ -105,6 +121,7 @@ export const initialWorthItState: WorthItState = {
   expenseRecords: [],
   stockSales: [],
   stockGrants: [],
+  retirementTransfers: [],
   marketQuotes: [],
   fxRates: [],
   today: todayIsoString(),
@@ -145,6 +162,20 @@ export const WorthItStore = signalStore(
 
     const employerStockAssets = computed<Asset[]>(() =>
       store.assets().filter((a) => a.type === 'employer_stock')
+    );
+
+    const recurringSavingsAssets = computed<Asset[]>(() =>
+      store.assets().filter((a) => a.type === 'recurring_savings')
+    );
+
+    const retirementAssets = computed<Asset[]>(() =>
+      store.assets().filter((a) => a.type === 'retirement')
+    );
+
+    const savingsSourceAssets = computed<Asset[]>(() =>
+      store
+        .assets()
+        .filter((a) => a.type === 'bank_account' || a.type === 'cash')
     );
 
     const grantsByAsset = computed<Map<string, StockGrant[]>>(() => {
@@ -235,6 +266,37 @@ export const WorthItStore = signalStore(
       }
     );
 
+    const recurringSavingsSnapshots = computed<
+      Map<string, RecurringSavingsSnapshot>
+    >(() => {
+      const map = new Map<string, RecurringSavingsSnapshot>();
+      const today = store.today();
+      for (const asset of recurringSavingsAssets()) {
+        map.set(asset.id, recurringSavingsSnapshot(asset, today));
+      }
+      return map;
+    });
+
+    const retirementSnapshots = computed<Map<string, RetirementSnapshot>>(
+      () => {
+        const map = new Map<string, RetirementSnapshot>();
+        const today = store.today();
+        const transfers = store.retirementTransfers();
+        for (const asset of retirementAssets()) {
+          map.set(asset.id, retirementSnapshot(asset, transfers, today));
+        }
+        return map;
+      }
+    );
+
+    const recurringMonthlyContributionsInBase = computed<number>(() =>
+      calculateRecurringMonthlyContributionsInBase(
+        store.assets(),
+        valuationContext(),
+        { goalEligibleOnly: true }
+      )
+    );
+
     const projectedInflows = computed<ProjectedInflow[]>(() =>
       collectProjectedInflows(store.assets(), valuationContext(), {
         goalEligibleOnly: true,
@@ -267,9 +329,19 @@ export const WorthItStore = signalStore(
       );
     });
 
+    const effectiveMonthlySurplus = computed(() => {
+      return (
+        Math.round(
+          (monthlySurplusSummary().monthlySurplus +
+            recurringMonthlyContributionsInBase()) *
+            100
+        ) / 100
+      );
+    });
+
     const financialCushionStatus = computed(() => {
       const wealth = wealthSummary();
-      const surplus = monthlySurplusSummary().monthlySurplus;
+      const surplus = effectiveMonthlySurplus();
       const refDate = parseIsoDateLocal(store.today());
       return calculator.calculateFinancialCushionStatus(
         wealth.goalEligibleWealth,
@@ -282,7 +354,7 @@ export const WorthItStore = signalStore(
 
     const goalsWithFunding = computed(() => {
       const wealth = wealthSummary();
-      const surplus = monthlySurplusSummary().monthlySurplus;
+      const surplus = effectiveMonthlySurplus();
       const refDate = parseIsoDateLocal(store.today());
       return calculator.calculateGoalsFundingSummary(
         goals(),
@@ -305,7 +377,8 @@ export const WorthItStore = signalStore(
         wealth.availableForGoals,
         wealth.cushionDeficit,
         refDate,
-        projectedInflows()
+        projectedInflows(),
+        recurringMonthlyContributionsInBase()
       );
     });
 
@@ -319,9 +392,16 @@ export const WorthItStore = signalStore(
       assetValuations,
       valuedAssets,
       employerStockSnapshots,
+      recurringSavingsSnapshots,
+      retirementSnapshots,
       grantsByAsset,
       projectedInflows,
       employerStockAssets,
+      recurringSavingsAssets,
+      retirementAssets,
+      savingsSourceAssets,
+      recurringMonthlyContributionsInBase,
+      effectiveMonthlySurplus,
       wealthSummary,
       pendingIncomeRecords,
       pendingExpenseRecords,
@@ -376,6 +456,7 @@ export const WorthItStore = signalStore(
             expenseRecords,
             stockSales,
             stockGrants,
+            retirementTransfers,
             marketQuotes,
             fxRates,
           ] = await Promise.all([
@@ -389,6 +470,7 @@ export const WorthItStore = signalStore(
             storage.getAllExpenseRecords(),
             storage.getAllStockSales(),
             storage.getAllStockGrants(),
+            storage.getAllRetirementTransfers(),
             storage.getAllMarketQuotes(),
             storage.getAllFxRates(),
           ]);
@@ -403,6 +485,7 @@ export const WorthItStore = signalStore(
             expenseRecords,
             stockSales,
             stockGrants,
+            retirementTransfers,
             marketQuotes,
             fxRates,
             today: todayIsoString(),
@@ -586,18 +669,34 @@ export const WorthItStore = signalStore(
       ): Promise<Asset> {
         const now = new Date().toISOString();
         const baseCurrency = store.settings().baseCurrency || 'PLN';
+        const today = store.today();
+
+        let recurringSavings = assetInput.recurringSavings;
+        let balance = Number(assetInput.balance) || 0;
+
+        if (assetInput.type === 'employer_stock') {
+          balance = 0;
+        } else if (assetInput.type === 'recurring_savings') {
+          recurringSavings = resolveRecurringSavingsDetails(
+            {
+              balance,
+              recurringSavings: assetInput.recurringSavings,
+            },
+            today
+          );
+          balance = accruedBalanceAt(recurringSavings, today);
+        }
 
         const newAsset: Asset = {
           id: assetInput.id || generateId(),
           name: assetInput.name.trim(),
           type: assetInput.type,
           currency: assetInput.currency || baseCurrency,
-          balance:
-            assetInput.type === 'employer_stock'
-              ? 0
-              : Number(assetInput.balance) || 0,
+          balance,
           exchangeRateToBase: assetInput.exchangeRateToBase,
           employerStock: assetInput.employerStock,
+          recurringSavings,
+          retirement: assetInput.retirement,
           isGoalEligible: assetInput.isGoalEligible ?? true,
           updatedAt: now,
         };
@@ -631,9 +730,59 @@ export const WorthItStore = signalStore(
         if (!current) return undefined;
 
         const now = new Date().toISOString();
+        const today = store.today();
+        let nextChanges: Partial<Asset> = { ...changes };
+
+        const targetType = nextChanges.type ?? current.type;
+        if (
+          targetType === 'recurring_savings' &&
+          nextChanges.recurringSavings !== undefined
+        ) {
+          const prevDetails = resolveRecurringSavingsDetails(current, today);
+          const incoming = nextChanges.recurringSavings;
+          const rateOrStatusChanged =
+            incoming.monthlyContribution !== prevDetails.monthlyContribution ||
+            incoming.isContributing !== prevDetails.isContributing;
+          const baselineUnchanged =
+            incoming.baselineAmount === prevDetails.baselineAmount &&
+            incoming.baselineDate === prevDetails.baselineDate;
+
+          let resolvedDetails: RecurringSavingsDetails = {
+            baselineAmount: Math.max(0, Number(incoming.baselineAmount) || 0),
+            baselineDate: incoming.baselineDate?.trim()
+              ? incoming.baselineDate.trim().slice(0, 10)
+              : today,
+            monthlyContribution: Math.max(
+              0,
+              Number(incoming.monthlyContribution) || 0
+            ),
+            isContributing: incoming.isContributing ?? true,
+          };
+
+          // Spec §7.3.4: Rate Change or Pause Protection — snapshot current accrued balance at today
+          // so past accrued months are never retroactively altered.
+          if (
+            current.type === 'recurring_savings' &&
+            rateOrStatusChanged &&
+            baselineUnchanged
+          ) {
+            resolvedDetails = {
+              ...resolvedDetails,
+              baselineAmount: accruedBalanceAt(prevDetails, today),
+              baselineDate: today,
+            };
+          }
+
+          nextChanges = {
+            ...nextChanges,
+            recurringSavings: resolvedDetails,
+            balance: accruedBalanceAt(resolvedDetails, today),
+          };
+        }
+
         const updated: Asset = {
           ...current,
-          ...changes,
+          ...nextChanges,
           id,
           updatedAt: now,
         };
@@ -642,17 +791,23 @@ export const WorthItStore = signalStore(
 
         let newHistoryRecord: AssetBalanceHistory | null = null;
         if (
-          changes.balance !== undefined &&
-          changes.balance !== current.balance
+          (nextChanges.balance !== undefined &&
+            nextChanges.balance !== current.balance) ||
+          historyNote !== undefined
         ) {
-          newHistoryRecord = {
-            id: generateId(),
-            assetId: id,
-            balance: changes.balance,
-            date: now,
-            note: historyNote ?? 'Balance update',
-          };
-          await storage.saveAssetHistory(newHistoryRecord);
+          if (
+            nextChanges.balance !== current.balance ||
+            historyNote !== undefined
+          ) {
+            newHistoryRecord = {
+              id: generateId(),
+              assetId: id,
+              balance: updated.balance,
+              date: now,
+              note: historyNote ?? 'Balance update',
+            };
+            await storage.saveAssetHistory(newHistoryRecord);
+          }
         }
 
         patchState(store, (state) => ({
@@ -690,6 +845,9 @@ export const WorthItStore = signalStore(
           assets: state.assets.filter((a) => a.id !== id),
           assetHistory: state.assetHistory.filter((h) => h.assetId !== id),
           stockGrants: state.stockGrants.filter((g) => g.assetId !== id),
+          retirementTransfers: state.retirementTransfers.filter(
+            (t) => t.toAssetId !== id && t.fromAssetId !== id
+          ),
           stockSales: state.stockSales.map((s) =>
             s.sourceAssetId === id ? { ...s, sourceAssetId: undefined } : s
           ),
@@ -781,6 +939,179 @@ export const WorthItStore = signalStore(
         };
 
         return this.updateAsset(assetId, { employerStock: updatedDetails });
+      },
+
+      // --- Recurring Savings Baseline & Contribution Methods (spec §7.3) ---
+      async reanchorRecurringSavingsBaseline(
+        assetId: string,
+        baselineAmount: number,
+        baselineDate?: string,
+        note?: string
+      ): Promise<Asset | undefined> {
+        const current = store.assets().find((a) => a.id === assetId);
+        if (!current) return undefined;
+
+        const today = store.today();
+        const prevDetails = resolveRecurringSavingsDetails(current, today);
+        const anchorDate =
+          baselineDate && baselineDate.trim()
+            ? baselineDate.trim().slice(0, 10)
+            : today;
+        const updatedDetails: RecurringSavingsDetails = {
+          ...prevDetails,
+          baselineAmount: Math.max(
+            0,
+            Math.round((Number(baselineAmount) || 0) * 100) / 100
+          ),
+          baselineDate: anchorDate,
+        };
+
+        return this.updateAsset(
+          assetId,
+          { recurringSavings: updatedDetails },
+          note?.trim() || `Baseline updated (${anchorDate})`
+        );
+      },
+
+      async toggleRecurringSavingsContributing(
+        assetId: string,
+        isContributing?: boolean
+      ): Promise<Asset | undefined> {
+        const current = store.assets().find((a) => a.id === assetId);
+        if (!current) return undefined;
+
+        const today = store.today();
+        const prevDetails = resolveRecurringSavingsDetails(current, today);
+        const nextContributing = isContributing ?? !prevDetails.isContributing;
+
+        return this.updateAsset(assetId, {
+          recurringSavings: {
+            ...prevDetails,
+            isContributing: nextContributing,
+          },
+        });
+      },
+
+      // --- Savings-to-Retirement Transfers (IKE / IKZE, spec §8.2) ---
+      async transferToRetirement(input: {
+        fromAssetId: string;
+        toAssetId: string;
+        amount: number;
+        date?: string;
+        note?: string;
+      }): Promise<RetirementTransfer> {
+        const fromAsset = store
+          .assets()
+          .find((a) => a.id === input.fromAssetId);
+        const toAsset = store.assets().find((a) => a.id === input.toAssetId);
+        if (!fromAsset) {
+          throw new Error('Source savings asset not found.');
+        }
+        if (!toAsset) {
+          throw new Error('Destination retirement asset not found.');
+        }
+
+        const amount = Math.max(
+          0,
+          Math.round((Number(input.amount) || 0) * 100) / 100
+        );
+        if (amount <= 0) {
+          throw new Error('Transfer amount must be greater than 0.');
+        }
+
+        const valuations = store.assetValuations();
+        const toFx =
+          valuations.get(toAsset.id)?.fxRateToBase ||
+          toAsset.exchangeRateToBase ||
+          1;
+        const fromFx =
+          valuations.get(fromAsset.id)?.fxRateToBase ||
+          fromAsset.exchangeRateToBase ||
+          1;
+
+        const sourceAmount =
+          fromAsset.currency === toAsset.currency
+            ? amount
+            : Math.round(((amount * toFx) / fromFx) * 100) / 100;
+
+        const now = new Date().toISOString();
+        const transferDate =
+          input.date && input.date.trim()
+            ? input.date.trim().slice(0, 10)
+            : store.today();
+        const trimmedNote = input.note?.trim();
+
+        const updatedFromBalance = Math.max(
+          0,
+          Math.round((fromAsset.balance - sourceAmount) * 100) / 100
+        );
+        const updatedToBalance =
+          Math.round((toAsset.balance + amount) * 100) / 100;
+
+        const updatedFrom: Asset = {
+          ...fromAsset,
+          balance: updatedFromBalance,
+          updatedAt: now,
+        };
+        const updatedTo: Asset = {
+          ...toAsset,
+          balance: updatedToBalance,
+          updatedAt: now,
+        };
+
+        const fromHistory: AssetBalanceHistory = {
+          id: generateId(),
+          assetId: fromAsset.id,
+          balance: updatedFromBalance,
+          date: now,
+          note: trimmedNote
+            ? `Transfer to ${toAsset.name}: ${trimmedNote}`
+            : `Transfer to ${toAsset.name}`,
+        };
+
+        const toHistory: AssetBalanceHistory = {
+          id: generateId(),
+          assetId: toAsset.id,
+          balance: updatedToBalance,
+          date: now,
+          note: trimmedNote
+            ? `Transfer from ${fromAsset.name}: ${trimmedNote}`
+            : `Transfer from ${fromAsset.name}`,
+        };
+
+        const transfer: RetirementTransfer = {
+          id: generateId(),
+          fromAssetId: fromAsset.id,
+          fromAssetName: fromAsset.name,
+          toAssetId: toAsset.id,
+          toAssetName: toAsset.name,
+          amount,
+          sourceAmount,
+          currency: toAsset.currency,
+          date: transferDate,
+          note: trimmedNote || undefined,
+          createdAt: now,
+        };
+
+        await Promise.all([
+          storage.saveAsset(updatedFrom),
+          storage.saveAsset(updatedTo),
+          storage.saveAssetHistory(fromHistory),
+          storage.saveAssetHistory(toHistory),
+          storage.saveRetirementTransfer(transfer),
+        ]);
+
+        patchState(store, (state) => ({
+          assets: state.assets.map((a) => {
+            if (a.id === fromAsset.id) return updatedFrom;
+            if (a.id === toAsset.id) return updatedTo;
+            return a;
+          }),
+          assetHistory: [...state.assetHistory, fromHistory, toHistory],
+          retirementTransfers: [transfer, ...state.retirementTransfers],
+        }));
+
+        return transfer;
       },
 
       // --- Market Data Methods (arch §8) ---

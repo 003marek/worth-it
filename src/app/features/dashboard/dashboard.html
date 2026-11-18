@@ -131,12 +131,12 @@
                   <p class="assumption-note">
                     This goal has reached 100% funding and is ready to be completed in the Goals tab.
                   </p>
-                } @else if (monthlySurplus() <= 0) {
+                } @else if (!active.estimatedCompletionDate) {
                   <div class="projected-timeline">
                     <span class="projected-date">Timeline unavailable</span>
                   </div>
                   <p class="assumption-note">
-                    Monthly surplus is currently {{ monthlySurplus() | money:currency() }}/mo.
+                    Monthly surplus is currently {{ effectiveMonthlySurplus() | money:currency() }}/mo.
                     Projected completion requires a positive monthly surplus. Check Cash Flow to adjust income/expenses.
                   </p>
                 } @else {
@@ -149,7 +149,10 @@
                     </span>
                   </div>
                   <p class="assumption-note">
-                    Projected from expected monthly surplus of {{ monthlySurplus() | money:currency() }}/mo
+                    Projected from expected monthly surplus of {{ effectiveMonthlySurplus() | money:currency() }}/mo
+                    @if (recurringContributionsMonthly() > 0) {
+                      <span>(includes +{{ recurringContributionsMonthly() | money:currency() }}/mo from recurring savings)</span>
+                    }
                     after satisfying protected cushion requirements.
                   </p>
                 }
@@ -492,6 +495,15 @@
                             &bull; Next: {{ asset.nextVest.shares }} sh on {{ asset.nextVest.date | date:'dd MMM yyyy' }}
                           </span>
                         }
+                      </span>
+                    }
+                    @if (asset.type === 'recurring_savings' && asset.isContributing && (asset.monthlyContribution ?? 0) > 0) {
+                      <span matListItemLine class="asset-unvested-pipeline projected">
+                        <mat-icon class="pipeline-icon">autorenew</mat-icon>
+                        <span>
+                          Recurring contribution:
+                          <em>+{{ asset.monthlyContribution | money:asset.currency }}/mo</em>
+                        </span>
                       </span>
                     }
                     <div matListItemMeta class="asset-right">
