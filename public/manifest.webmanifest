@@ -1,8 +1,6 @@
 {
   "name": "Worth It",
   "short_name": "Worth It",
-  "theme_color": "#2e365a",
-  "background_color": "#ffffff",
   "display": "standalone",
   "scope": "./",
   "start_url": "./",
