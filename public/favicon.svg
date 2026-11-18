@@ -1,37 +1,41 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
     <linearGradient id="bg" x1="15%" y1="0%" x2="85%" y2="100%">
-      <stop offset="0%" stop-color="#15803d" />
-      <stop offset="45%" stop-color="#0f5132" />
-      <stop offset="100%" stop-color="#052e16" />
+      <stop offset="0%" stop-color="#222734" />
+      <stop offset="50%" stop-color="#13161f" />
+      <stop offset="100%" stop-color="#090a0f" />
     </linearGradient>
-    <linearGradient id="disc-outer" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22" />
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.04" />
+    <linearGradient id="bar1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#a5b4fc" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#2e365a" stop-opacity="0.35" />
     </linearGradient>
-    <linearGradient id="disc-inner" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.32" />
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.08" />
+    <linearGradient id="bar2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa" stop-opacity="0.65" />
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.3" />
+    </linearGradient>
+    <linearGradient id="bar3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.88" />
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.45" />
     </linearGradient>
     <linearGradient id="arrow" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#86efac" />
-      <stop offset="45%" stop-color="#ffffff" />
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="50%" stop-color="#a5b4fc" />
       <stop offset="100%" stop-color="#ffffff" />
     </linearGradient>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#02180b" flood-opacity="0.5" />
+      <feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#000000" flood-opacity="0.75" />
     </filter>
   </defs>
   <!-- Rounded square background -->
   <rect width="512" height="512" rx="116" fill="url(#bg)" />
-  <rect x="6" y="6" width="500" height="500" rx="110" fill="none" stroke="#86efac" stroke-opacity="0.25" stroke-width="4" />
-  <!-- Layered glassmorphic medallion rings -->
-  <circle cx="256" cy="256" r="168" fill="url(#disc-outer)" stroke="#ffffff" stroke-opacity="0.28" stroke-width="6" />
-  <circle cx="256" cy="256" r="110" fill="url(#disc-inner)" stroke="#ffffff" stroke-opacity="0.38" stroke-width="6" />
-  <circle cx="256" cy="256" r="52" fill="#22c55e" fill-opacity="0.35" stroke="#ffffff" stroke-opacity="0.5" stroke-width="6" />
-  <!-- Unified rising trend arrow -->
+  <rect x="6" y="6" width="500" height="500" rx="110" fill="none" stroke="#a5b4fc" stroke-opacity="0.22" stroke-width="4" />
+  <!-- Ascending glassmorphic wealth pillars -->
+  <rect x="116" y="284" width="68" height="116" rx="20" fill="url(#bar1)" stroke="#a5b4fc" stroke-opacity="0.35" stroke-width="4" />
+  <rect x="222" y="220" width="68" height="180" rx="20" fill="url(#bar2)" stroke="#93c5fd" stroke-opacity="0.45" stroke-width="4" />
+  <rect x="328" y="148" width="68" height="252" rx="20" fill="url(#bar3)" stroke="#5eead4" stroke-opacity="0.65" stroke-width="4" />
+  <!-- Breakout rising trend arrow -->
   <g filter="url(#shadow)">
-    <path d="M120 356 L220 256 L278 308 L392 168" fill="none" stroke="url(#arrow)" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" />
-    <path d="M312 168 L392 168 L392 248" fill="none" stroke="url(#arrow)" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M116 264 L222 184 L284 224 L388 116" fill="none" stroke="url(#arrow)" stroke-width="38" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M314 116 L388 116 L388 190" fill="none" stroke="#ffffff" stroke-width="38" stroke-linecap="round" stroke-linejoin="round" />
   </g>
 </svg>
