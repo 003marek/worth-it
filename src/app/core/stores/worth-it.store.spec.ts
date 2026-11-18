@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 import { MarketQuote } from '../models/market-data.model';
 import { FinancialCalculatorService } from '../services/financial-calculator.service';
+import { GoogleDriveService } from '../services/google-drive.service';
 import { MarketDataService } from '../services/market-data/market-data.service';
 import { StorageService } from '../services/storage.service';
 import { WorthItStore } from './worth-it.store';
@@ -643,6 +644,54 @@ describe('WorthItStore', () => {
       expect(localStore.fxRates()).toHaveLength(1);
       expect(localStore.lastMarketRefresh()).toEqual(refreshResult);
       expect(localStore.marketDataRefreshing()).toBe(false);
+    });
+  });
+
+  describe('Google Drive Sync (exportToDrive & importFromDrive)', () => {
+    it('exports all data to Google Drive using configured clientId and folder', async () => {
+      const driveService = TestBed.inject(GoogleDriveService);
+      const initSpy = vi.spyOn(driveService, 'init').mockResolvedValue(undefined);
+      const syncSpy = vi.spyOn(driveService, 'syncData').mockResolvedValue(undefined);
+
+      await store.addGoal({ name: 'Drive Goal', targetAmount: 25000 });
+      await store.updateSettings({
+        googleClientId: 'drive-client-id.apps.googleusercontent.com',
+        googleDriveBackupFolder: 'My WorthIt Backups',
+      });
+
+      await store.exportToDrive();
+
+      expect(initSpy).toHaveBeenCalledWith('drive-client-id.apps.googleusercontent.com');
+      expect(syncSpy).toHaveBeenCalledWith(
+        expect.stringContaining('"Drive Goal"'),
+        'My WorthIt Backups'
+      );
+    });
+
+    it('imports data from Google Drive, preserves Google Client ID, and reloads store', async () => {
+      const driveService = TestBed.inject(GoogleDriveService);
+      await store.addGoal({ name: 'Remote Goal', targetAmount: 40000 });
+      const backupJson = await storage.exportAllData();
+
+      await storage.clearAllData();
+      await store.loadAll();
+      expect(store.goals()).toHaveLength(0);
+
+      await store.updateSettings({
+        googleClientId: 'active-client-id',
+        googleDriveBackupFolder: 'Custom Folder',
+      });
+
+      vi.spyOn(driveService, 'init').mockResolvedValue(undefined);
+      vi.spyOn(driveService, 'importData').mockResolvedValue(backupJson);
+
+      await store.importFromDrive();
+
+      expect(store.goals()).toHaveLength(1);
+      expect(store.goals()[0].name).toBe('Remote Goal');
+      // Preserves Google Drive credentials even if imported backup had none
+      expect(store.settings().googleClientId).toBe('active-client-id');
+      expect(store.settings().googleDriveBackupFolder).toBe('Custom Folder');
     });
   });
 });

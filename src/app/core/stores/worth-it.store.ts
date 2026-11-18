@@ -46,6 +46,10 @@ import {
 } from '../models/worth-it.model';
 import { FinancialCalculatorService } from '../services/financial-calculator.service';
 import {
+  DEFAULT_DRIVE_BACKUP_FOLDER,
+  GoogleDriveService,
+} from '../services/google-drive.service';
+import {
   MarketDataService,
   MarketRefreshResult,
 } from '../services/market-data/market-data.service';
@@ -329,6 +333,7 @@ export const WorthItStore = signalStore(
   }),
   withMethods((store) => {
     const storage = inject(StorageService);
+    const driveService = inject(GoogleDriveService);
     const injector = inject(Injector);
     let marketDataService: MarketDataService | null = null;
 
@@ -389,6 +394,7 @@ export const WorthItStore = signalStore(
           ]);
 
           patchState(store, setAllEntities(goals), {
+            settings,
             assets,
             assetHistory,
             incomeSources,
@@ -1223,6 +1229,48 @@ export const WorthItStore = signalStore(
         });
         patchState(store, { settings: updated });
         return updated;
+      },
+
+      // --- Google Drive Sync Methods ---
+      async exportToDrive(): Promise<void> {
+        const currentSettings = store.settings();
+        const clientId = (currentSettings.googleClientId ?? '').trim();
+        const folderName =
+          (currentSettings.googleDriveBackupFolder ?? '').trim() ||
+          DEFAULT_DRIVE_BACKUP_FOLDER;
+
+        if (!clientId) {
+          throw new Error('Google Client ID is required');
+        }
+
+        await driveService.init(clientId);
+        const jsonData = await storage.exportAllData();
+        await driveService.syncData(jsonData, folderName);
+      },
+
+      async importFromDrive(): Promise<void> {
+        const currentSettings = store.settings();
+        const clientId = (currentSettings.googleClientId ?? '').trim();
+        const folderName =
+          (currentSettings.googleDriveBackupFolder ?? '').trim() ||
+          DEFAULT_DRIVE_BACKUP_FOLDER;
+
+        if (!clientId) {
+          throw new Error('Google Client ID is required');
+        }
+
+        await driveService.init(clientId);
+        const jsonData = await driveService.importData(folderName);
+        await storage.importAllData(jsonData);
+
+        // Preserve current Google Drive configuration so importing a backup
+        // does not disconnect the user from the Client ID and folder they just used
+        await storage.updateSettings({
+          googleClientId: clientId,
+          googleDriveBackupFolder: folderName,
+        });
+
+        await this.loadAll();
       },
     };
   }),

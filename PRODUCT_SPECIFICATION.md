@@ -252,6 +252,7 @@ Worth It includes a **Stock Sales** feature for recording stock sales:
 - **Theme**: Light / Dark / System.
 - **Financial Cushion**: Enable/disable toggle, average monthly expenses, and coverage in months.
 - **Data Export / Import**: Full JSON backup and restore (including stock grants, vesting schedules, and cached market/FX quotes).
+- **Google Drive Sync**: Optional cloud backup and restore to a user-specified folder in Google Drive (`worth-it-backup.json`) using Google Identity Services (GIS) OAuth2 (`drive.file` scope) and the user's Google OAuth Client ID.
 
 ---
 
@@ -287,3 +288,5 @@ Worth It includes a **Stock Sales** feature for recording stock sales:
   - `sourceAssetId?: string` (optional link to an `employer_stock` `Asset.id`)
 - **`ApplicationSettings` (extended)**:
   - `twelveDataApiKey?: string`
+  - `googleClientId?: string`
+  - `googleDriveBackupFolder?: string`

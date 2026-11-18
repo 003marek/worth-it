@@ -250,6 +250,96 @@ describe('Settings', () => {
     });
   });
 
+  describe('Google Drive Sync', () => {
+    it('renders the Google Drive Sync card with default folder WorthIt Backups', () => {
+      const el = fixture.nativeElement as HTMLElement;
+      const card = el.querySelector('.google-drive-card');
+      expect(card).toBeTruthy();
+      expect(card?.textContent).toContain('Google Drive Sync');
+      expect(component.driveModel().googleDriveBackupFolder).toBe('WorthIt Backups');
+      expect(component.hideClientId()).toBe(true);
+    });
+
+    it('saves Google Drive settings via form submission', async () => {
+      component.driveModel.set({
+        googleClientId: 'my-oauth-client-id',
+        googleDriveBackupFolder: 'WorthIt Cloud',
+      });
+
+      await submit(component.driveForm);
+
+      expect(store.settings().googleClientId).toBe('my-oauth-client-id');
+      expect(store.settings().googleDriveBackupFolder).toBe('WorthIt Cloud');
+      expect(mockSnackBar.open).toHaveBeenCalledWith(
+        'Google Drive settings saved',
+        'OK',
+        expect.any(Object)
+      );
+    });
+
+    it('warns when trying to export or import without a Google Client ID', async () => {
+      component.driveModel.set({
+        googleClientId: '',
+        googleDriveBackupFolder: 'WorthIt Backups',
+      });
+
+      await component.exportToDrive();
+      expect(mockSnackBar.open).toHaveBeenCalledWith(
+        'Please configure Google Client ID first',
+        'OK',
+        expect.any(Object)
+      );
+
+      mockSnackBar.open.mockClear();
+      await component.importFromDrive();
+      expect(mockSnackBar.open).toHaveBeenCalledWith(
+        'Please configure Google Client ID first',
+        'OK',
+        expect.any(Object)
+      );
+    });
+
+    it('exports to Google Drive and shows success snackbar', async () => {
+      const exportSpy = vi.spyOn(store, 'exportToDrive').mockResolvedValue(undefined);
+      component.driveModel.set({
+        googleClientId: 'valid-client-id',
+        googleDriveBackupFolder: 'WorthIt Backups',
+      });
+
+      await component.exportToDrive();
+
+      expect(exportSpy).toHaveBeenCalled();
+      expect(store.settings().googleClientId).toBe('valid-client-id');
+      expect(mockSnackBar.open).toHaveBeenCalledWith(
+        'Successfully exported to Google Drive!',
+        'OK',
+        expect.any(Object)
+      );
+    });
+
+    it('imports from Google Drive after confirmation and shows success snackbar', async () => {
+      mockDialog.open.mockReturnValue({
+        afterClosed: () => of(true),
+      });
+      const importSpy = vi.spyOn(store, 'importFromDrive').mockResolvedValue(undefined);
+
+      component.driveModel.set({
+        googleClientId: 'valid-client-id',
+        googleDriveBackupFolder: 'WorthIt Backups',
+      });
+
+      await component.importFromDrive();
+
+      expect(mockDialog.open).toHaveBeenCalled();
+      expect(importSpy).toHaveBeenCalled();
+      expect(mockSnackBar.open).toHaveBeenCalledWith(
+        'Successfully imported from Google Drive!',
+        'OK',
+        expect.any(Object)
+      );
+    });
+  });
+
   describe('Quick Management Links', () => {
     it('displays counts and router links for assets, goals, cashflow, and stock sales', async () => {
       await store.addAsset({ name: 'Checking', type: 'bank_account', balance: 10000 });

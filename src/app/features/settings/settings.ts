@@ -20,6 +20,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatListModule } from '@angular/material/list';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -30,6 +31,7 @@ import {
   AppTheme,
   FinancialCushionSettings,
 } from '../../core/models/worth-it.model';
+import { DEFAULT_DRIVE_BACKUP_FOLDER } from '../../core/services/google-drive.service';
 import { MarketDataError } from '../../core/services/market-data/market-data.error';
 import { StorageService } from '../../core/services/storage.service';
 import { ThemeService } from '../../core/services/theme.service';
@@ -52,6 +54,11 @@ export interface ApiKeyFormModel {
   twelveDataApiKey: string;
 }
 
+export interface GoogleDriveFormModel {
+  googleClientId: string;
+  googleDriveBackupFolder: string;
+}
+
 @Component({
   selector: 'app-settings',
   standalone: true,
@@ -67,6 +74,7 @@ export interface ApiKeyFormModel {
     MatSelectModule,
     MatSlideToggleModule,
     MatProgressBarModule,
+    MatProgressSpinner,
     MatDividerModule,
     MatRipple,
     RouterLink,
@@ -428,6 +436,111 @@ export interface ApiKeyFormModel {
         </div>
       </section>
 
+      <!-- 3.5. Google Drive Sync Card -->
+      <mat-card class="settings-card google-drive-card">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="card-avatar-icon">cloud_sync</mat-icon>
+          <mat-card-title>Google Drive Sync</mat-card-title>
+          <mat-card-subtitle>Configure Google Drive integration to backup your data in the cloud</mat-card-subtitle>
+        </mat-card-header>
+
+        <mat-card-content class="card-content">
+          <form [formRoot]="driveForm" class="settings-form">
+            <div class="form-row">
+              <div class="form-field-group">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Google Client ID</mat-label>
+                  <input
+                    matInput
+                    [type]="hideClientId() ? 'password' : 'text'"
+                    [formField]="driveForm.googleClientId"
+                    placeholder="Enter your Google OAuth Client ID"
+                    autocomplete="off"
+                  />
+                  <button
+                    mat-icon-button
+                    matSuffix
+                    type="button"
+                    (click)="hideClientId.set(!hideClientId())"
+                    [attr.aria-label]="hideClientId() ? 'Show Google Client ID' : 'Hide Google Client ID'"
+                    [attr.aria-pressed]="!hideClientId()"
+                  >
+                    <mat-icon>{{ hideClientId() ? 'visibility' : 'visibility_off' }}</mat-icon>
+                  </button>
+                  <mat-hint>OAuth 2.0 Web Client ID with Google Drive API enabled.</mat-hint>
+                </mat-form-field>
+              </div>
+
+              <div class="form-field-group">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Backup Folder Name</mat-label>
+                  <input
+                    matInput
+                    [formField]="driveForm.googleDriveBackupFolder"
+                    placeholder="WorthIt Backups"
+                  />
+                  <mat-icon matSuffix>folder</mat-icon>
+                  <mat-hint>Folder created in your Google Drive for worth-it-backup.json.</mat-hint>
+                </mat-form-field>
+              </div>
+            </div>
+
+            <div class="drive-actions-row">
+              <div class="drive-sync-buttons">
+                <button
+                  mat-stroked-button
+                  color="primary"
+                  type="button"
+                  class="export-drive-btn"
+                  (click)="exportToDrive()"
+                  [disabled]="isExportingToDrive() || isImportingFromDrive()"
+                >
+                  @if (isExportingToDrive()) {
+                    <mat-spinner class="button-spinner" diameter="20"></mat-spinner>
+                  } @else {
+                    <mat-icon>cloud_upload</mat-icon>
+                  }
+                  Export to Google Drive
+                </button>
+
+                <button
+                  mat-stroked-button
+                  color="primary"
+                  type="button"
+                  class="import-drive-btn"
+                  (click)="importFromDrive()"
+                  [disabled]="isImportingFromDrive() || isExportingToDrive()"
+                >
+                  @if (isImportingFromDrive()) {
+                    <mat-spinner class="button-spinner" diameter="20"></mat-spinner>
+                  } @else {
+                    <mat-icon>cloud_download</mat-icon>
+                  }
+                  Import from Google Drive
+                </button>
+              </div>
+
+              <button
+                mat-flat-button
+                color="primary"
+                type="submit"
+                class="save-drive-btn"
+                [disabled]="driveForm().submitting()"
+              >
+                Save Drive Settings
+              </button>
+            </div>
+
+            <div class="api-key-privacy-notice" role="note">
+              <mat-icon class="privacy-icon">shield</mat-icon>
+              <span>
+                Google Drive sync uses your own OAuth Client ID with <code>drive.file</code> scope, accessing only the backup folder and file created by Worth It.
+              </span>
+            </div>
+          </form>
+        </mat-card-content>
+      </mat-card>
+
       <!-- 4. Backup & Restore (JSON Export / Import — spec §14.5, §16.14) -->
       <mat-card class="settings-card">
         <mat-card-header>
@@ -743,6 +856,29 @@ export interface ApiKeyFormModel {
         flex-wrap: wrap;
         gap: 12px;
         margin-top: 4px;
+      }
+      .drive-actions-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 4px;
+      }
+      .drive-sync-buttons {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .button-spinner {
+        display: inline-block;
+        position: relative;
+        vertical-align: top;
+        font-size: 1.125rem;
+        height: 1.125rem;
+        width: 1.125rem;
+        margin-right: 0.5rem;
       }
       .buttons-group {
         display: flex;
@@ -1085,6 +1221,119 @@ export class Settings {
     }
   }
 
+  // --- Google Drive Sync Form ---
+  readonly hideClientId = signal(true);
+  readonly isExportingToDrive = signal(false);
+  readonly isImportingFromDrive = signal(false);
+
+  readonly driveModel = signal<GoogleDriveFormModel>({
+    googleClientId: this.store.settings().googleClientId || '',
+    googleDriveBackupFolder:
+      this.store.settings().googleDriveBackupFolder || DEFAULT_DRIVE_BACKUP_FOLDER,
+  });
+
+  readonly driveForm = form(
+    this.driveModel,
+    () => {},
+    {
+      submission: {
+        action: async () => {
+          await this.persistDriveFormModel();
+          this.snackBar.open('Google Drive settings saved', 'OK', {
+            duration: 3000,
+          });
+          return undefined;
+        },
+      },
+    }
+  );
+
+  private async persistDriveFormModel(): Promise<{
+    clientId: string;
+    folderName: string;
+  }> {
+    const model = this.driveModel();
+    const clientId = model.googleClientId.trim();
+    const folderName =
+      model.googleDriveBackupFolder.trim() || DEFAULT_DRIVE_BACKUP_FOLDER;
+
+    await this.store.updateSettings({
+      googleClientId: clientId || undefined,
+      googleDriveBackupFolder: folderName,
+    });
+
+    return { clientId, folderName };
+  }
+
+  async exportToDrive(): Promise<void> {
+    const { clientId } = await this.persistDriveFormModel();
+    if (!clientId) {
+      this.snackBar.open('Please configure Google Client ID first', 'OK', {
+        duration: 3000,
+      });
+      return;
+    }
+
+    this.isExportingToDrive.set(true);
+    try {
+      await this.store.exportToDrive();
+      this.snackBar.open('Successfully exported to Google Drive!', 'OK', {
+        duration: 3000,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.snackBar.open(
+        `Failed to export to Google Drive: ${message}`,
+        'OK',
+        { duration: 5000 }
+      );
+    } finally {
+      this.isExportingToDrive.set(false);
+    }
+  }
+
+  async importFromDrive(): Promise<void> {
+    const { clientId } = await this.persistDriveFormModel();
+    if (!clientId) {
+      this.snackBar.open('Please configure Google Client ID first', 'OK', {
+        duration: 3000,
+      });
+      return;
+    }
+
+    const dialogRef = this.dialog.open(ConfirmDialog, {
+      data: {
+        title: 'Import from Google Drive',
+        message:
+          'Importing from Google Drive will replace all current goals, assets, records, and settings with the backup stored in your Google Drive. Are you sure you want to proceed?',
+        confirmText: 'Import Backup',
+        cancelText: 'Cancel',
+        destructive: true,
+      },
+    });
+
+    const confirmed = await firstValueFrom(dialogRef.afterClosed());
+    if (!confirmed) return;
+
+    this.isImportingFromDrive.set(true);
+    try {
+      await this.store.importFromDrive();
+      await this.themeService.setTheme(this.store.settings().theme || 'system');
+      this.snackBar.open('Successfully imported from Google Drive!', 'OK', {
+        duration: 3000,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.snackBar.open(
+        `Failed to import from Google Drive: ${message}`,
+        'OK',
+        { duration: 5000 }
+      );
+    } finally {
+      this.isImportingFromDrive.set(false);
+    }
+  }
+
   constructor() {
     // Keep form models in sync when store settings change externally (e.g. reload after import)
     effect(() => {
@@ -1101,6 +1350,11 @@ export class Settings {
         });
         this.apiKeyModel.set({
           twelveDataApiKey: s.twelveDataApiKey || '',
+        });
+        this.driveModel.set({
+          googleClientId: s.googleClientId || '',
+          googleDriveBackupFolder:
+            s.googleDriveBackupFolder || DEFAULT_DRIVE_BACKUP_FOLDER,
         });
       });
     });

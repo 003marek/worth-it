@@ -140,6 +140,8 @@ export interface ApplicationSettings {
   theme: AppTheme;
   cushion: FinancialCushionSettings;
   twelveDataApiKey?: string;
+  googleClientId?: string;
+  googleDriveBackupFolder?: string;
 }
 
 export interface WealthSummary {

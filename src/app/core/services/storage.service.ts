@@ -25,6 +25,7 @@ export const DEFAULT_SETTINGS: ApplicationSettings = {
     averageMonthlyExpenses: 6000,
     coverageMonths: 6,
   },
+  googleDriveBackupFolder: 'WorthIt Backups',
 };
 
 @Injectable({
