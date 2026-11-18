@@ -5,12 +5,46 @@ html {
   @include mat.theme(
     (
       color: (
-        primary: mat.$green-palette,
+        primary: mat.$azure-palette,
         tertiary: mat.$cyan-palette,
         theme-type: light,
       ),
       typography: Roboto,
       density: 0,
+    )
+  );
+
+  // Ocean Slate & Teal — Light
+  @include mat.theme-overrides(
+    (
+      primary: #1d4ed8,
+      on-primary: #ffffff,
+      primary-container: #dbeafe,
+      on-primary-container: #1e3a8a,
+      inverse-primary: #93c5fd,
+      secondary: #334155,
+      on-secondary: #ffffff,
+      secondary-container: #e2e8f0,
+      on-secondary-container: #0f172a,
+      tertiary: #0d9488,
+      on-tertiary: #ffffff,
+      tertiary-container: #ccfbf1,
+      on-tertiary-container: #115e59,
+      background: #f1f5f9,
+      on-background: #0f172a,
+      surface: #f1f5f9,
+      surface-dim: #e2e8f0,
+      surface-bright: #ffffff,
+      surface-container-lowest: #ffffff,
+      surface-container-low: #f8fafc,
+      surface-container: #ffffff,
+      surface-container-high: #f1f5f9,
+      surface-container-highest: #e2e8f0,
+      on-surface: #0f172a,
+      surface-variant: #e2e8f0,
+      on-surface-variant: #475569,
+      outline: #64748b,
+      outline-variant: #cbd5e1,
     )
   );
 
@@ -31,15 +65,31 @@ html {
 }
 
 .dark-theme {
+  // Azure & Blue (seen-it) — Dark
   @include mat.theme(
     (
       color: (
-        primary: mat.$green-palette,
-        tertiary: mat.$cyan-palette,
+        primary: mat.$azure-palette,
+        tertiary: mat.$blue-palette,
         theme-type: dark,
       ),
       typography: Roboto,
       density: 0,
+    )
+  );
+
+  // Tone down the punchy #0000ef (tertiary-container) and #93000a (error-container) in dark mode
+  @include mat.theme-overrides(
+    (
+      tertiary: #a5b4fc,
+      on-tertiary: #1e1b4b,
+      tertiary-container: #2e365a,
+      on-tertiary-container: #e0e7ff,
+      on-tertiary-fixed-variant: #2e365a,
+      error: #fca5a5,
+      on-error: #450a0a,
+      error-container: #4a2328,
+      on-error-container: #ffe4e6,
     )
   );
 
@@ -60,12 +110,14 @@ html {
 }
 
 :root {
-  --worth-it-positive: #1b6b3a;
+  --worth-it-positive: #059669;
   --worth-it-negative: var(--mat-sys-error);
+  --worth-it-shell-bg: var(--mat-sys-surface-container);
 }
 
 .dark-theme {
   --worth-it-positive: #4ade80;
+  --worth-it-shell-bg: var(--mat-sys-surface);
 }
 
 body {

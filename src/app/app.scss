@@ -8,7 +8,7 @@
   box-sizing: border-box;
   overflow-x: hidden !important;
   border-radius: 0 !important;
-  background-color: var(--mat-sys-surface);
+  background-color: var(--worth-it-shell-bg, var(--mat-sys-surface));
   border-right: 1px solid var(--mat-sys-outline-variant);
 
   ::ng-deep .mat-drawer-inner-container {
@@ -22,6 +22,7 @@
     display: flex;
     align-items: center;
     padding: 0 16px;
+    background-color: var(--worth-it-shell-bg, var(--mat-sys-surface));
     border-bottom: 1px solid var(--mat-sys-outline-variant);
 
     .logo-title {
@@ -89,6 +90,8 @@
   z-index: 10;
   display: flex;
   align-items: center;
+  background-color: var(--worth-it-shell-bg, var(--mat-sys-surface));
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
 
   .page-title {
     font-size: 1.125rem;
