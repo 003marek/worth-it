@@ -13,7 +13,6 @@ import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
-import { MatListModule } from '@angular/material/list';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { DashboardLayout } from '../../core/models/worth-it.model';
 import { StorageService } from '../../core/services/storage.service';
@@ -35,7 +34,6 @@ import { MonthsPipe } from '../../shared/pipes/months.pipe';
     MatChipsModule,
     MatDividerModule,
     MatIconModule,
-    MatListModule,
     MatProgressBarModule,
     MoneyPipe,
     MonthsPipe,

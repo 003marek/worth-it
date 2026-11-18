@@ -469,63 +469,75 @@
             </div>
 
             @if (store.assets().length > 0) {
-              <mat-list class="assets-list">
+              <div class="assets-list" role="list">
                 @for (asset of assetBreakdown(); track asset.id; let last = $last) {
-                  <mat-list-item class="asset-item" [class.stock-asset-item]="asset.type === 'employer_stock'">
-                    <span matListItemTitle class="asset-name">{{ asset.name }}</span>
-                    <span matListItemLine class="asset-meta">
-                      <span>{{ formatAssetType(asset.type) }}</span>
-                      <span
-                        class="eligibility-tag"
-                        [class.eligible]="asset.isGoalEligible"
-                        [class.excluded]="!asset.isGoalEligible"
-                      >
-                        {{ asset.isGoalEligible ? 'Goal-eligible' : 'Excluded' }}
-                      </span>
-                    </span>
-                    @if (asset.type === 'employer_stock' && asset.unvestedShares > 0) {
-                      <span matListItemLine class="asset-unvested-pipeline projected">
-                        <mat-icon class="pipeline-icon">schedule</mat-icon>
-                        <span>
-                          Unvested pipeline (projected only):
-                          <em>{{ asset.unvestedShares }} sh (est. {{ asset.unvestedValueInBase | money:currency() }})</em>
-                        </span>
-                        @if (asset.nextVest) {
-                          <span class="next-vest-badge">
-                            &bull; Next: {{ asset.nextVest.shares }} sh on {{ asset.nextVest.date | date:'dd MMM yyyy' }}
+                  <div
+                    class="asset-item"
+                    role="listitem"
+                    [class.stock-asset-item]="asset.type === 'employer_stock'"
+                  >
+                    <div class="asset-row-main">
+                      <div class="asset-info">
+                        <span class="asset-name">{{ asset.name }}</span>
+                        <div class="asset-meta">
+                          <span>{{ formatAssetType(asset.type) }}</span>
+                          <span
+                            class="eligibility-tag"
+                            [class.eligible]="asset.isGoalEligible"
+                            [class.excluded]="!asset.isGoalEligible"
+                          >
+                            {{ asset.isGoalEligible ? 'Goal-eligible' : 'Excluded' }}
+                          </span>
+                        </div>
+                      </div>
+                      <div class="asset-right">
+                        @if (asset.type === 'employer_stock') {
+                          <span class="asset-balance">
+                            {{ asset.heldShares ?? 0 }} sh ({{ asset.baseValue | money:currency() }})
+                          </span>
+                        } @else {
+                          <span class="asset-balance">
+                            {{ asset.balance | money:asset.currency }}
                           </span>
                         }
-                      </span>
-                    }
-                    @if (asset.type === 'recurring_savings' && asset.isContributing && (asset.monthlyContribution ?? 0) > 0) {
-                      <span matListItemLine class="asset-unvested-pipeline projected">
-                        <mat-icon class="pipeline-icon">autorenew</mat-icon>
-                        <span>
-                          Recurring contribution:
-                          <em>+{{ asset.monthlyContribution | money:asset.currency }}/mo</em>
-                        </span>
-                      </span>
-                    }
-                    <div matListItemMeta class="asset-right">
-                      @if (asset.type === 'employer_stock') {
-                        <span class="asset-balance">
-                          {{ asset.heldShares ?? 0 }} sh ({{ asset.baseValue | money:currency() }})
-                        </span>
-                      } @else {
-                        <span class="asset-balance">
-                          {{ asset.balance | money:asset.currency }}
-                        </span>
-                      }
-                      <div class="asset-percent">
-                        {{ asset.percentOfTotal | number:'1.1-1' }}% of total
+                        <div class="asset-percent">
+                          {{ asset.percentOfTotal | number:'1.1-1' }}% of total
+                        </div>
                       </div>
                     </div>
-                  </mat-list-item>
+                    @if (asset.type === 'employer_stock' && asset.unvestedShares > 0) {
+                      <div class="asset-unvested-pipeline projected">
+                        <mat-icon class="pipeline-icon">schedule</mat-icon>
+                        <div class="pipeline-text">
+                          <span>
+                            Unvested pipeline (projected only):
+                            <em>{{ asset.unvestedShares }} sh (est. {{ asset.unvestedValueInBase | money:currency() }})</em>
+                          </span>
+                          @if (asset.nextVest) {
+                            <span class="next-vest-badge">
+                              &bull; Next: {{ asset.nextVest.shares }} sh on {{ asset.nextVest.date | date:'dd MMM yyyy' }}
+                            </span>
+                          }
+                        </div>
+                      </div>
+                    }
+                    @if (asset.type === 'recurring_savings' && asset.isContributing && (asset.monthlyContribution ?? 0) > 0) {
+                      <div class="asset-unvested-pipeline projected">
+                        <mat-icon class="pipeline-icon">autorenew</mat-icon>
+                        <div class="pipeline-text">
+                          <span>
+                            Recurring contribution:
+                            <em>+{{ asset.monthlyContribution | money:asset.currency }}/mo</em>
+                          </span>
+                        </div>
+                      </div>
+                    }
+                  </div>
                   @if (!last) {
                     <mat-divider></mat-divider>
                   }
                 }
-              </mat-list>
+              </div>
             } @else {
               <app-empty-state
                 icon="account_balance_wallet"
