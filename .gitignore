@@ -42,3 +42,8 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# AI Agent skills and parent directory
+/.agents/
+/.agents/skills/
+/skills-lock.json
